@@ -27,6 +27,19 @@ const CITIES: { city: string; state: string }[] = [
 ];
 const INCOME_BANDS = ["800000", "1200000", "1500000", "1800000", "2200000", "2600000", "3000000"];
 
+const INDIAN_BANKS: { name: string; ifscPrefix: string }[] = [
+  { name: "State Bank of India", ifscPrefix: "SBIN" },
+  { name: "HDFC Bank", ifscPrefix: "HDFC" },
+  { name: "ICICI Bank", ifscPrefix: "ICIC" },
+  { name: "Axis Bank", ifscPrefix: "UTIB" },
+  { name: "Kotak Mahindra Bank", ifscPrefix: "KKBK" },
+  { name: "Punjab National Bank", ifscPrefix: "PUNB" },
+  { name: "Bank of Baroda", ifscPrefix: "BARB" },
+  { name: "Canara Bank", ifscPrefix: "CNRB" },
+  { name: "IndusInd Bank", ifscPrefix: "INDB" },
+  { name: "Yes Bank", ifscPrefix: "YESB" },
+];
+
 export const SEED_CORPORATES = ["Chola Business Services", "SCONE", "First Corp"] as const;
 const EMPLOYEES_PER_CORPORATE = 155;
 
@@ -63,6 +76,11 @@ export interface SeedEmployee {
   companyName: string;
   jobLocationPincode?: string;
   state?: string;
+  /** Indian bank account details (from HRMS) for disbursal */
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  bankBranch?: string;
 }
 
 export function getSeedEmployees(): SeedEmployee[] {
@@ -112,6 +130,15 @@ export function getSeedEmployees(): SeedEmployee[] {
         companyName,
         jobLocationPincode: String(500000 + (seed % 100000)),
         state,
+        ...((): { bankName: string; bankAccountNumber: string; bankIfscCode: string; bankBranch: string } => {
+          const bank = randomChoice(INDIAN_BANKS, seed + 10);
+          return {
+            bankName: bank.name,
+            bankAccountNumber: String(1000000000 + (seed % 9000000000)),
+            bankIfscCode: `${bank.ifscPrefix}0${String(100000 + (seed % 900000)).padStart(6, "0")}`,
+            bankBranch: `${city} Branch`,
+          };
+        })(),
       });
     }
   }

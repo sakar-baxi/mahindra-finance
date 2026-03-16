@@ -204,7 +204,7 @@ export default function StepEkycHandler() {
                 />
                 <span className="text-sm text-gray-700 leading-relaxed">
                   {journeyConfig.legalTexts.aadhaarConsent ??
-                    "I voluntarily authorize the Bank to use my Aadhaar details for eKYC authentication and to fetch my KYC details from UIDAI for account opening. I indemnify the Bank against losses arising due to any difference in my name on Aadhaar and PAN, if any."}
+                    "I voluntarily authorize Mahindra Finance to use my Aadhaar details for eKYC authentication and to fetch my KYC details from UIDAI for account opening. I indemnify Mahindra Finance against losses arising due to any difference in my name on Aadhaar and PAN, if any."}
                 </span>
               </label>
               {showErrors && !uidaiConsent && (

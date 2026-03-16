@@ -407,7 +407,7 @@ const DEFAULT_LEGAL_TEXTS: LegalTexts = {
   privacyTitle: "Privacy Policy",
   vkycConsent: [
     "I consent to complete KYC through VCIP (Video Customer Identification Process) as prescribed by RBI.",
-    "I authorize the Bank to open my account using Aadhaar OTP-based e-KYC if Video KYC is unsuccessful.",
+    "I authorize Mahindra Finance to open my account using Aadhaar OTP-based e-KYC if Video KYC is unsuccessful.",
     "I declare that I have completed the application myself and on my device.",
   ],
   vkycPresentInIndia: "I confirm that I am present in India.",
@@ -464,7 +464,7 @@ export const IDFC_JOURNEY_PRESET: Partial<JourneyConfigState> = {
     getOtp: "Get OTP To Verify Aadhaar",
     verifyAadhaar: "Verify Aadhaar",
     proceedToOpenAccount: "Proceed to open account",
-    proceedToVideoKyc: "Continue to Video KYC",
+    proceedToVideoKyc: "Proceed to document collection",
     submitApplication: "Submit Application",
     confirmAndContinue: "Confirm & Continue",
     okay: "Okay",

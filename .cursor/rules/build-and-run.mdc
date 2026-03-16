@@ -1,0 +1,14 @@
+---
+description: Always build then run when starting the app
+alwaysApply: true
+---
+
+# Build and run
+
+When the user asks to run, build, start, or "build and run" the app:
+
+- **Always use port 3000.** Do not start the app on other ports (3001, 3005, 3010, etc.). If port 3000 is in use, kill the process on 3000 first (e.g. `lsof -ti :3000 | xargs kill -9`), then start.
+- Use **`npm start`** as the default command. It runs `npm run build && next start`, so the app is always built for production and then started on port 3000.
+- To start without rebuilding (e.g. after a previous build), use `npm run start:server` (also on port 3000).
+
+Do not run only `next start` or only `next build` when the intent is to run the app; use `npm start` so build happens automatically.

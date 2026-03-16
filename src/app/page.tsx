@@ -29,8 +29,13 @@ export default function Home() {
       if (!raw) return;
       localStorage.removeItem("pendingInvite");
       bootedRef.current = true;
-      const { journeyType, prefilled } = JSON.parse(raw);
-      startJourney(journeyType, prefilled);
+      const parsed = JSON.parse(raw);
+      const { journeyType, prefilledData, employee } = parsed;
+      // Merge HRMS prefilledData with employee so HRMS fields flow into the journey
+      const merged = prefilledData
+        ? { ...(employee || {}), ...prefilledData }
+        : parsed.prefilled || {};
+      startJourney(journeyType, merged);
     } catch { /* ignore */ }
   }, [startJourney]);
 

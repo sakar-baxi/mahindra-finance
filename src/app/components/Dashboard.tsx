@@ -77,6 +77,10 @@ interface Employee {
     jobLocationPincode?: string;
     state?: string;
     marriageDate?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankIfscCode?: string;
+    bankBranch?: string;
 }
 
 interface JourneyStatus {
@@ -287,11 +291,11 @@ const employees: Employee[] = _seedEmployees.map((e) => ({
 
 // ─── Main Dashboard Component ───────────────────────────────────────────
 
-type TabKey = "directory" | "accountOpened";
+type TabKey = "directory" | "accountOpened" | "analytics";
 type PageKey = "dashboard" | "connections" | "reporting" | "corporates" | "integrations" | "data-models" | "webhooks" | "diagnostics" | "rm-employees" | "rm-products" | "rm-analytics" | "hr-overview" | "hr-employees";
 
 const ONBOARDED_CORPORATES_KEY = "hdfc_onboarded_corporates";
-const HR_SHARED_EMPLOYEE_IDS_KEY = "hdfc_hr_shared_employee_ids";
+// All corporate employees are always synced to RM dashboard (no HR manual share required)
 const HR_OWN_CORPORATE = "Chola Business Services"; // HR Portal sees only this corporate
 
 type EmpPageKey = "dashboard" | "finagent" | "orders";
@@ -316,37 +320,6 @@ export default function Dashboard() {
     const [searchQuery, setSearchQuery] = React.useState("");
     const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
     const [employeeStatuses, setEmployeeStatuses] = React.useState<Record<string, JourneyStatus>>({});
-    // RM Portal: only show employees that HR has shared to the Bank (from Manage employees)
-    const [sharedWithBankIds, setSharedWithBankIds] = React.useState<Record<string, boolean>>(() => {
-        if (typeof window === "undefined") return {};
-        try {
-            const raw = localStorage.getItem(HR_SHARED_EMPLOYEE_IDS_KEY);
-            return raw ? JSON.parse(raw) : {};
-        } catch { return {}; }
-    });
-
-    React.useEffect(() => {
-        const onStorage = (e: StorageEvent) => {
-            if (e.key === HR_SHARED_EMPLOYEE_IDS_KEY && e.newValue) {
-                try { setSharedWithBankIds(JSON.parse(e.newValue)); } catch { /* ignore */ }
-            }
-        };
-        window.addEventListener("storage", onStorage);
-        return () => window.removeEventListener("storage", onStorage);
-    }, []);
-
-    // Re-read shared list when switching to RM so we pick up HR shares from same tab
-    const syncSharedIds = React.useCallback(() => {
-        if (typeof window === "undefined") return;
-        try {
-            const raw = localStorage.getItem(HR_SHARED_EMPLOYEE_IDS_KEY);
-            if (raw) setSharedWithBankIds(JSON.parse(raw));
-        } catch { /* ignore */ }
-    }, []);
-    React.useEffect(() => {
-        if (portalMode === "rm") syncSharedIds();
-    }, [portalMode, syncSharedIds]);
-
     // Read all employee journey statuses from localStorage
     const refreshStatuses = React.useCallback(() => {
         const statuses: Record<string, JourneyStatus> = {};
@@ -449,7 +422,8 @@ export default function Dashboard() {
         const lastName = nameParts.slice(1).join(" ") || "";
         localStorage.setItem("pendingInvite", JSON.stringify({
             journeyType,
-            prefilled: {
+            employee: { id: emp.id, name: emp.name, email: emp.email, phone: emp.phone },
+            prefilledData: {
                 employeeId: emp.id,
                 name: emp.name,
                 firstName,
@@ -468,6 +442,10 @@ export default function Dashboard() {
                 pincode: emp.jobLocationPincode,
                 department: emp.department,
                 grade: emp.grade,
+                bankName: emp.bankName,
+                bankAccountNumber: emp.bankAccountNumber,
+                bankIfscCode: emp.bankIfscCode,
+                bankBranch: emp.bankBranch,
             },
         }));
         window.open("/", "_blank");
@@ -668,7 +646,7 @@ export default function Dashboard() {
                             setActiveTab={setActiveTab}
                             selectedCorporate={selectedCorporate}
                             setSelectedCorporate={setSelectedCorporate}
-                            employees={portalMode === "hr" ? employees.filter((e) => (e.companyName || "Chola Business Services") === HR_OWN_CORPORATE) : portalMode === "rm" ? employees.filter((e) => sharedWithBankIds[e.id]) : employees}
+                            employees={portalMode === "hr" ? employees.filter((e) => (e.companyName || "Chola Business Services") === HR_OWN_CORPORATE) : employees}
                             employeeStatuses={employeeStatuses}
                             invitedEmployeeIds={invitedEmployeeIds}
                             filterEmployees={filterEmployees}
@@ -712,7 +690,7 @@ function HREmployeeDetail({ employee, journeyStatus, onBack }: { employee: Emplo
     const totalDisbursed = journeyStatus?.status === "completed" ? "₹16.2L" : "—";
     const activeProducts = journeyStatus?.status === "completed" ? 3 : 0;
     const lastLogin = "18/2/2026";
-    const products = journeyStatus?.status === "completed" ? ["Mahindra Finance Debit Card", "Mahindra Finance Personal Loan"] : [];
+    const products = journeyStatus?.status === "completed" ? ["Mahindra Finance Personal Loan", "Mahindra Finance Home Loan"] : [];
 
     return (
         <div className="space-y-6">
