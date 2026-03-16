@@ -40,9 +40,36 @@ import {
     getStatusBadge,
 } from "./DashboardShared";
 import ProductMarketplaceDashboard from "./shared/ProductMarketplaceDashboard";
+import { getSyncTimestamp, getTriggers, getSyncedEmployees } from "@/lib/hrmsSync";
 
 const ITEMS_PER_PAGE = 10;
 const CONNECTIONS_PER_PAGE = 10;
+
+/** Personal loan journey step order for funnel and smart document collector (MMFSL). */
+const PERSONAL_LOAN_STEP_ORDER = [
+    "personal-loan:verifyIdentity",
+    "personal-loan:otpVerify",
+    "personal-loan:ekycAadhaar",
+    "personal-loan:ekycAadhaarOtp",
+    "personal-loan:personalDetails",
+    "personal-loan:addressIncomeRegulatory",
+    "personal-loan:reviewApplication",
+    "personal-loan:documentCollection",
+    "personal-loan:bureauResponse",
+    "personal-loan:complete",
+] as const;
+const PERSONAL_LOAN_STEP_LABELS: Record<string, string> = {
+    "personal-loan:verifyIdentity": "Verify identity",
+    "personal-loan:otpVerify": "OTP verify",
+    "personal-loan:ekycAadhaar": "eKYC Aadhaar",
+    "personal-loan:ekycAadhaarOtp": "eKYC OTP",
+    "personal-loan:personalDetails": "Personal details",
+    "personal-loan:addressIncomeRegulatory": "Address & income",
+    "personal-loan:reviewApplication": "Review application",
+    "personal-loan:documentCollection": "Document collection",
+    "personal-loan:bureauResponse": "Bureau response",
+    "personal-loan:complete": "Complete",
+};
 
 type DataModelField = { display_name: string; is_checked?: boolean };
 type DataModelCategory = Record<string, DataModelField>;
@@ -94,6 +121,13 @@ export interface DashboardPageContentProps<TEmployee extends Employee = Employee
     portalMode?: "hr" | "rm" | "employee";
     onAddNewCorporate?: () => void;
     onNavigate?: (page: PageKey) => void;
+    onHrSyncNow?: () => void;
+    lastHrSyncAt?: string | null;
+    /** FTNR case management: retrigger journey from where employee left off */
+    onRetriggerJourney?: (emp: TEmployee) => void;
+    /** FTNR: nudge employee to complete journey (e.g. send reminder) */
+    onNudge?: (emp: TEmployee) => void;
+    nudgeFeedback?: string | null;
 }
 
 export function DashboardPageContent<TEmployee extends Employee = Employee, TStatus extends JourneyStatus = JourneyStatus>(props: DashboardPageContentProps<TEmployee, TStatus>) {
@@ -125,6 +159,11 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
         portalMode = "hr",
         onAddNewCorporate,
         onNavigate,
+        onHrSyncNow,
+        lastHrSyncAt,
+        onRetriggerJourney,
+        onNudge,
+        nudgeFeedback,
     } = props;
 
     const [connectionsPage, setConnectionsPage] = React.useState(1);
@@ -381,14 +420,28 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                     </button>
                 </div>
 
-                {hrEmployeesMainTab === "directory" && (
+                {hrEmployeesMainTab === "directory" && (() => {
+                    const syncedEmployees = getSyncedEmployees();
+                    const getSalaryDisplay = (emp: TEmployee) => {
+                        const s = syncedEmployees[emp.id];
+                        if (s) return `₹${(s.salary / 100000).toFixed(1)}L`;
+                        const inc = (emp as { income?: string }).income;
+                        return inc ? `₹${(parseInt(inc, 10) / 100000).toFixed(1)}L` : "—";
+                    };
+                    const getDeptDisplay = (emp: TEmployee) => syncedEmployees[emp.id]?.department ?? (emp as { department?: string }).department ?? "—";
+                    const getBandDesignation = (emp: TEmployee) => {
+                        const s = syncedEmployees[emp.id];
+                        if (s) return `${s.band} · ${s.designation}`;
+                        return "—";
+                    };
+                    return (
                     <>
                         <div className="flex flex-col sm:flex-row gap-4 mb-4">
                             <div className="flex-1 flex items-center bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 h-10">
                                 <Search className="w-4 h-4 text-[#9CA3AF] shrink-0" />
                                 <input type="text" placeholder="Search employees by name, ID, or department..." value={hrSearch} onChange={(e) => setHrSearch(e.target.value)} className="ml-2 text-sm outline-none w-full bg-transparent" />
                             </div>
-                            <button type="button" onClick={refreshStatuses} className="h-10 px-4 border border-[#E5E7EB] bg-white text-[#374151] font-medium text-sm rounded-lg flex items-center gap-2 shrink-0 hover:bg-[#F9FAFB]"><RefreshCcw className="w-4 h-4" /> Sync HRMS</button>
+                            <button type="button" onClick={() => { onHrSyncNow?.(); refreshStatuses(); }} className="h-10 px-4 border border-[#E5E7EB] bg-white text-[#374151] font-medium text-sm rounded-lg flex items-center gap-2 shrink-0 hover:bg-[#F9FAFB]"><RefreshCcw className="w-4 h-4" /> Sync now</button>
                         </div>
                         <div className="flex flex-wrap gap-3 mb-4">
                             <select value={hrDeptFilter} onChange={(e) => setHrDeptFilter(e.target.value)} className="h-10 px-4 border border-[#E5E7EB] rounded-lg text-sm bg-white text-[#374151]">
@@ -401,12 +454,12 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                 <option>All Scores</option>
                             </select>
                         </div>
-                        <p className="text-sm text-[#9CA3AF] mb-3">Last synced: 24/2/2026, 11:09:39 am</p>
-                        <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
-                            <div className="overflow-x-auto">
+                        <p className="text-sm text-[#9CA3AF] mb-3">Last synced: {(lastHrSyncAt || getSyncTimestamp()) ? new Date(lastHrSyncAt || getSyncTimestamp() || "").toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Never"}</p>
+                        <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden flex flex-col min-h-0">
+                            <div className="overflow-x-auto overflow-y-auto max-h-[70vh] min-h-0">
                                 <table className="w-full text-sm border-collapse min-w-[900px]">
-                                    <thead className="bg-[#F9FAFB]"><tr className="border-b border-[#E5E7EB]">
-                                        <HeaderCell label="Employee" /><HeaderCell label="Department" /><HeaderCell label="Salary" /><HeaderCell label="Tenure" /><HeaderCell label="Fin. Score" /><HeaderCell label="Products" /><HeaderCell label="Corporate Account" /><th className="px-5 py-4">Actions</th>
+                                    <thead className="bg-[#F9FAFB] sticky top-0 z-10"><tr className="border-b border-[#E5E7EB]">
+                                        <HeaderCell label="Employee" /><HeaderCell label="Department" /><HeaderCell label="Salary" /><HeaderCell label="Band · Designation" /><HeaderCell label="Tenure" /><HeaderCell label="Fin. Score" /><HeaderCell label="Products" /><HeaderCell label="Corporate Account" /><th className="px-5 py-4">Actions</th>
                                     </tr></thead>
                                     <tbody className="divide-y divide-[#E5E7EB]">
                                         {filteredHr.map((emp) => {
@@ -417,8 +470,9 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                             return (
                                                 <tr key={emp.id} className="hover:bg-[#F9FAFB]">
                                                     <td className="px-5 py-4"><div><button onClick={() => setSelectedEmployee(emp)} className="text-dashboard-primary font-semibold hover:underline text-left">{displayName}</button><p className="text-xs text-[#9CA3AF]">{emp.id}</p></div></td>
-                                                    <td className="px-5 py-4">{(emp as { department?: string }).department || "Engineering"}</td>
-                                                    <td className="px-5 py-4">{getSalary(emp)}</td>
+                                                    <td className="px-5 py-4">{getDeptDisplay(emp)}</td>
+                                                    <td className="px-5 py-4">{getSalaryDisplay(emp)}</td>
+                                                    <td className="px-5 py-4 text-[#6B7280]">{getBandDesignation(emp)}</td>
                                                     <td className="px-5 py-4">{getTenure()}</td>
                                                     <td className="px-5 py-4"><span className={cn("px-2 py-1 rounded-full text-xs font-semibold", scoreColor)}>{score}</span></td>
                                                     <td className="px-5 py-4">{getProducts(emp)}</td>
@@ -431,8 +485,51 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                 </table>
                             </div>
                         </div>
+                        {(() => {
+                            const synced = getSyncedEmployees();
+                            const completedWithTriggers = hrEmployees.filter((e) => employeeStatuses[e.id]?.status === "completed").filter((e) => getTriggers(e.id).length > 0);
+                            if (completedWithTriggers.length === 0) return null;
+                            return (
+                                <div className="mt-6 bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
+                                    <div className="px-5 py-4 border-b border-[#E5E7EB] bg-[#F9FAFB]">
+                                        <h2 className="text-sm font-semibold text-[#111827]">Employment & income triggers (feedback from MMFSL LMS)</h2>
+                                        <p className="text-xs text-[#6B7280] mt-0.5">Change in employment triggers: function, status, salary, NACH (termination/resignation), BRE loan rules applied</p>
+                                    </div>
+                                    <div className="divide-y divide-[#E5E7EB]">
+                                        {completedWithTriggers.map((emp) => {
+                                            const triggers = getTriggers(emp.id);
+                                            const syncedData = synced[emp.id];
+                                            const name = (employeeStatuses[emp.id] as { name?: string })?.name || emp.name;
+                                            return (
+                                                <div key={emp.id} className="px-5 py-4">
+                                                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                                                        <div>
+                                                            <button type="button" onClick={() => setSelectedEmployee(emp)} className="text-dashboard-primary font-semibold hover:underline text-left">{name}</button>
+                                                            <p className="text-xs text-[#9CA3AF]">{emp.id}</p>
+                                                            {syncedData && (
+                                                                <p className="text-xs text-[#6B7280] mt-1">Salary: ₹{(syncedData.salary / 100000).toFixed(1)}L · Band: {syncedData.band} · {syncedData.designation} · {syncedData.employmentStatus}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <ul className="mt-2 space-y-1">
+                                                        {triggers.map((t, i) => (
+                                                            <li key={i} className="flex items-center gap-2 text-sm">
+                                                                <span className={cn("px-2 py-0.5 rounded text-xs font-medium", t.type.startsWith("NACH") ? "bg-amber-50 text-amber-800" : "bg-blue-50 text-blue-800")}>{t.label}</span>
+                                                                <span className="text-[#6B7280]">{t.description}</span>
+                                                                <span className="text-[#9CA3AF] text-xs">{t.date ? new Date(t.date).toLocaleDateString("en-IN") : ""}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </>
-                )}
+                    );
+                })()}
 
                 {hrEmployeesMainTab === "updates" && (
                     <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm p-12 text-center">
@@ -516,9 +613,9 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                     <h2 className="text-sm font-semibold text-[#111827]">Loan details (MMFSL product penetration)</h2>
                                     <p className="text-xs text-[#6B7280] mt-0.5">Employees offered or accepted loans — PL, Amt, Rate, Tenure, LAP, Disbursal</p>
                                 </div>
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto overflow-y-auto max-h-[70vh] min-h-0">
                                     <table className="w-full text-sm border-collapse min-w-[800px]">
-                                        <thead className="bg-[#F9FAFB]">
+                                        <thead className="bg-[#F9FAFB] sticky top-0 z-10">
                                             <tr className="border-b border-[#E5E7EB]">
                                                 <HeaderCell label="Employee" />
                                                 <HeaderCell label="Product" />
@@ -580,10 +677,10 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                 <Check className="w-4 h-4" /> Share data
                             </button>
                         </div>
-                        <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
-                            <div className="overflow-x-auto">
+                        <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden flex flex-col min-h-0">
+                            <div className="overflow-x-auto overflow-y-auto max-h-[70vh] min-h-0">
                                 <table className="w-full text-sm border-collapse min-w-[700px]">
-                                    <thead className="bg-[#F9FAFB]">
+                                    <thead className="bg-[#F9FAFB] sticky top-0 z-10">
                                         <tr className="border-b border-[#E5E7EB]">
                                             <th className="px-5 py-4 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide w-12">
                                                 {manageSubTab === "unshared" && (
@@ -994,7 +1091,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm overflow-hidden">
                                     <h3 className="text-sm font-semibold text-[#111827] mb-4">Department-wise age split</h3>
-                                    <div className="overflow-x-auto">
+                                    <div className="overflow-x-auto overflow-y-auto max-h-[50vh] min-h-0">
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="border-b border-[#E5E7EB]">
@@ -1061,9 +1158,9 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                             <button className="h-10 px-4 bg-dashboard-primary text-white font-medium text-sm rounded-lg hover:bg-dashboard-primary-dark transition-colors flex items-center gap-2 shadow-sm"><Download className="w-4 h-4" /> Download CSV</button>
                         </div>
                     </div>
-                    <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
+                    <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0 max-h-[70vh]">
                         <table className="w-full text-sm border-collapse min-w-[900px]">
-                            <thead className="bg-[#F9FAFB]">
+                            <thead className="bg-[#F9FAFB] sticky top-0 z-10">
                                 <tr className="border-b border-[#E5E7EB]">
                                     <HeaderCell label="Employee name" /><HeaderCell label="Phone number" /><HeaderCell label="Official Email ID" className="w-[180px]" /><HeaderCell label="Journey Category" /><HeaderCell label="Journey Status" hasFilter className="w-[160px]" /><HeaderCell label="Reference ID" className="w-[55px] px-3" /><th className="px-5 py-4"></th>
                                 </tr>
@@ -1153,9 +1250,9 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                             <StatCard label="Personal loan – Invited" value={personalLoanInvited} subtitle="Awaiting response" icon={<Send className="w-6 h-6" />} color="yellow" />
                             <StatCard label="Personal loan – Not started" value={personalLoanNotStarted} subtitle="Eligible, not invited" icon={<Users className="w-6 h-6" />} color="grey" />
                         </div>
-                        <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
+                        <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden flex flex-col min-h-0">
                             <h3 className="text-sm font-semibold text-[#111827] px-5 py-4 border-b border-[#E5E7EB]">Metrics by lending product</h3>
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto overflow-y-auto max-h-[50vh] min-h-0">
                                 <table className="w-full text-sm border-collapse min-w-[640px]">
                                     <thead className="bg-[#F9FAFB]">
                                         <tr className="border-b border-[#E5E7EB]">
@@ -1185,6 +1282,133 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                             </div>
                         </div>
                     </div>
+
+                    {/* First Time Not Right (FTNR) – Case management: In progress + Invited, with Nudge by journey status */}
+                    {(personalLoanInProgress > 0 || personalLoanInvited > 0) && portalMode === "rm" && (onRetriggerJourney != null || onNudge != null) && (
+                        <div className="mt-10">
+                            <h2 className="text-base font-bold text-[#111827] mb-1">First Time Not Right (FTNR) – Case management</h2>
+                            <p className="text-sm text-[#6B7280] mb-5">Feedback loop from MMFSL journey. Nudge employees by journey status; retrigger from where they left off for in-progress; use smart document collector.</p>
+                            {nudgeFeedback && (
+                                <div className="mb-4 px-4 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+                                    {nudgeFeedback}
+                                </div>
+                            )}
+                            <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden flex flex-col min-h-0">
+                                <div className="overflow-x-auto overflow-y-auto max-h-[60vh] min-h-0">
+                                    <table className="w-full text-sm border-collapse min-w-[800px]">
+                                        <thead className="bg-[#F9FAFB] sticky top-0 z-10">
+                                            <tr className="border-b border-[#E5E7EB]">
+                                                <th className="px-5 py-3 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Employee</th>
+                                                <th className="px-5 py-3 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Journey status</th>
+                                                <th className="px-5 py-3 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Where they left off</th>
+                                                <th className="px-5 py-3 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Pending (smart doc collector)</th>
+                                                <th className="px-5 py-3 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Last updated</th>
+                                                <th className="px-5 py-3 text-right font-semibold text-[#374151] text-xs uppercase tracking-wide">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-[#E5E7EB]">
+                                            {employees
+                                                .filter((e) => employeeStatuses[e.id]?.status === "in_progress" || (invitedEmployeeIds[e.id] && employeeStatuses[e.id]?.status !== "completed"))
+                                                .map((emp) => {
+                                                    const status = employeeStatuses[emp.id] as { status?: string; currentStepId?: string; currentStepTitle?: string; lastUpdated?: string } | undefined;
+                                                    const isInProgress = status?.status === "in_progress";
+                                                    const isInvited = !!invitedEmployeeIds[emp.id] && status?.status !== "completed" && !isInProgress;
+                                                    const currentStepId = status?.currentStepId ?? "";
+                                                    const currentIndex = PERSONAL_LOAN_STEP_ORDER.indexOf(currentStepId as typeof PERSONAL_LOAN_STEP_ORDER[number]);
+                                                    const pendingSteps = currentIndex >= 0 ? PERSONAL_LOAN_STEP_ORDER.slice(currentIndex + 1).filter((id) => id !== "personal-loan:complete") : [];
+                                                    const docCollectorSteps = pendingSteps.filter((id) => id === "personal-loan:documentCollection" || id === "personal-loan:addressIncomeRegulatory" || id === "personal-loan:reviewApplication");
+                                                    return (
+                                                        <tr key={emp.id} className="hover:bg-[#F9FAFB]">
+                                                            <td className="px-5 py-4">
+                                                                <div>
+                                                                    <p className="font-medium text-[#111827]">{emp.name}</p>
+                                                                    <p className="text-xs text-[#9CA3AF]">{emp.id} · {emp.companyName || "—"}</p>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-5 py-4">
+                                                                {isInProgress ? (
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-dashboard-primary-light text-dashboard-primary border border-dashboard-primary/30">In progress</span>
+                                                                ) : isInvited ? (
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Invited</span>
+                                                                ) : (
+                                                                    <span className="text-xs text-[#9CA3AF]">—</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4">
+                                                                {isInProgress ? (
+                                                                    <>
+                                                                        <div className="flex flex-wrap gap-1 items-center">
+                                                                            {PERSONAL_LOAN_STEP_ORDER.map((stepId, i) => {
+                                                                                const isDone = currentIndex >= 0 && i < currentIndex;
+                                                                                const isCurrent = stepId === currentStepId;
+                                                                                const label = PERSONAL_LOAN_STEP_LABELS[stepId] ?? stepId;
+                                                                                return (
+                                                                                    <span
+                                                                                        key={stepId}
+                                                                                        className={cn(
+                                                                                            "inline-flex items-center gap-0.5 text-xs px-2 py-0.5 rounded",
+                                                                                            isCurrent && "bg-dashboard-primary text-white font-semibold",
+                                                                                            isDone && !isCurrent && "bg-slate-100 text-slate-600",
+                                                                                            !isDone && !isCurrent && "bg-slate-50 text-slate-400"
+                                                                                        )}
+                                                                                    >
+                                                                                        {i > 0 && <span className="opacity-60">→</span>}
+                                                                                        {label}
+                                                                                    </span>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                        <p className="text-xs text-[#6B7280] mt-1">Current: {(status?.currentStepTitle ?? currentStepId) || "—"}</p>
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="text-xs text-[#9CA3AF]">Not started</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4">
+                                                                {isInProgress && docCollectorSteps.length > 0 ? (
+                                                                    <ul className="text-xs text-[#6B7280] space-y-0.5">
+                                                                        {docCollectorSteps.map((id) => (
+                                                                            <li key={id}>{PERSONAL_LOAN_STEP_LABELS[id] ?? id}</li>
+                                                                        ))}
+                                                                    </ul>
+                                                                ) : (
+                                                                    <span className="text-xs text-[#9CA3AF]">—</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-[#6B7280] text-xs">
+                                                                {status?.lastUpdated ? new Date(status.lastUpdated).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right">
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    {onRetriggerJourney && isInProgress && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => onRetriggerJourney(emp)}
+                                                                            className="h-8 px-3 rounded-lg text-xs font-semibold bg-dashboard-primary text-white hover:opacity-90"
+                                                                        >
+                                                                            Retrigger journey
+                                                                        </button>
+                                                                    )}
+                                                                    {onNudge && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => onNudge(emp)}
+                                                                            className="h-8 px-3 rounded-lg text-xs font-semibold border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB]"
+                                                                        >
+                                                                            Nudge
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>
             );
         }
@@ -1263,8 +1487,8 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                     <button className="h-10 px-4 border border-[#E5E7EB] bg-white text-[#374151] font-medium text-sm rounded-lg flex items-center gap-2"><Filter className="w-4 h-4" /> Filters</button>
                     <button className="h-10 px-4 bg-dashboard-primary text-white font-medium text-sm rounded-lg flex items-center gap-2"><Rocket className="w-4 h-4" /> Add New Connection</button>
                 </div>
-                <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden"><p className="px-5 py-3 text-sm text-[#6B7280]">{connections.length} connections found</p>
-                    <div className="overflow-x-auto"><table className="w-full text-sm border-collapse min-w-[1000px]"><thead className="bg-[#F9FAFB]"><tr className="border-b border-[#E5E7EB]"><HeaderCell label="Corporate" /><HeaderCell label="Connection ID" /><HeaderCell label="Date Of Connection" /><HeaderCell label="Integration" /><HeaderCell label="CSM" /><HeaderCell label="Last Synced" /><HeaderCell label="Sync Frequency" /><HeaderCell label="Status" /><HeaderCell label="Steps Status" /><th className="px-5 py-4">Action</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{paginatedConnections.map((c) => (<tr key={c.id} className="hover:bg-[#F9FAFB]"><td className="px-5 py-4">{c.corporate}</td><td className="px-5 py-4 text-[#6B7280] font-mono text-xs">{c.id}</td><td className="px-5 py-4">{c.dateOfConnection}</td><td className="px-5 py-4">{c.integration}</td><td className="px-5 py-4">{c.csm}</td><td className="px-5 py-4">{c.lastSynced}</td><td className="px-5 py-4">{c.syncFreq}</td><td className="px-5 py-4"><span className={cn("px-2 py-1 rounded-full text-xs", c.status === "Active" ? "bg-blue-50 text-blue-700" : c.status === "Pending" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700")}>{c.status}</span></td><td className="px-5 py-4 text-[#6B7280]">{c.stepsStatus}</td><td className="px-5 py-4"><button className="text-dashboard-primary hover:underline">Complete journey</button> <button className="p-1">⋮</button></td></tr>))}</tbody></table></div>
+                <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden flex flex-col min-h-0"><p className="px-5 py-3 text-sm text-[#6B7280] flex-shrink-0">{connections.length} connections found</p>
+                    <div className="overflow-x-auto overflow-y-auto max-h-[70vh] min-h-0"><table className="w-full text-sm border-collapse min-w-[1000px]"><thead className="bg-[#F9FAFB] sticky top-0 z-10"><tr className="border-b border-[#E5E7EB]"><HeaderCell label="Corporate" /><HeaderCell label="Connection ID" /><HeaderCell label="Date Of Connection" /><HeaderCell label="Integration" /><HeaderCell label="CSM" /><HeaderCell label="Last Synced" /><HeaderCell label="Sync Frequency" /><HeaderCell label="Status" /><HeaderCell label="Steps Status" /><th className="px-5 py-4">Action</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{paginatedConnections.map((c) => (<tr key={c.id} className="hover:bg-[#F9FAFB]"><td className="px-5 py-4">{c.corporate}</td><td className="px-5 py-4 text-[#6B7280] font-mono text-xs">{c.id}</td><td className="px-5 py-4">{c.dateOfConnection}</td><td className="px-5 py-4">{c.integration}</td><td className="px-5 py-4">{c.csm}</td><td className="px-5 py-4">{c.lastSynced}</td><td className="px-5 py-4">{c.syncFreq}</td><td className="px-5 py-4"><span className={cn("px-2 py-1 rounded-full text-xs", c.status === "Active" ? "bg-blue-50 text-blue-700" : c.status === "Pending" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700")}>{c.status}</span></td><td className="px-5 py-4 text-[#6B7280]">{c.stepsStatus}</td><td className="px-5 py-4"><button className="text-dashboard-primary hover:underline">Complete journey</button> <button className="p-1">⋮</button></td></tr>))}</tbody></table></div>
                     <div className="px-6 py-4 border-t border-[#E5E7EB] bg-[#F9FAFB] flex justify-end items-center gap-2"><button disabled={connectionsPage <= 1} onClick={() => setConnectionsPage((p) => p - 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-50">‹</button>{[1, 2, 3, 4].slice(0, connectionsTotalPages).map((n) => (<button key={n} onClick={() => setConnectionsPage(n)} className={cn("px-3 py-1.5 border rounded-lg", connectionsPage === n ? "bg-dashboard-primary text-white border-dashboard-primary" : "")}>{n}</button>))}<span className="text-sm text-[#6B7280] ml-2">... {connectionsTotalPages}</span><button disabled={connectionsPage >= connectionsTotalPages} onClick={() => setConnectionsPage((p) => p + 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-50">›</button></div>
                 </div>
             </>
@@ -1504,10 +1728,10 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                     )}
                 </div>
                 <p className="text-sm text-[#6B7280] mb-3">{filteredCorporates.length} corporates found</p>
-                <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
+                <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden flex flex-col min-h-0">
+                    <div className="overflow-x-auto overflow-y-auto max-h-[70vh] min-h-0">
                         <table className="w-full text-sm border-collapse min-w-[900px]">
-                            <thead className="bg-[#F9FAFB]">
+                            <thead className="bg-[#F9FAFB] sticky top-0 z-10">
                                 <tr className="border-b border-[#E5E7EB]">
                                     <th className="px-5 py-4 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Corporate Name</th>
                                     <th className="px-5 py-4 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Categories</th>
@@ -1747,7 +1971,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
             <>
                 <div className="mb-6"><h1 className="text-2xl font-bold text-[#111827]">Diagnostics</h1><p className="text-sm text-[#6B7280] mt-0.5">Monitor data flow and system status across all corporate connections</p></div>
                 <div className="mb-4 flex justify-between items-center"><div><h2 className="text-base font-bold text-[#111827]">Corporate connections overview</h2><p className="text-sm text-[#6B7280]">Showing connection status and data flow metrics</p></div><button className="h-10 px-4 border border-[#E5E7EB] bg-white text-[#374151] font-medium text-sm rounded-lg flex items-center gap-2">Select date</button></div>
-                <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm border-collapse min-w-[800px]"><thead className="bg-[#F9FAFB]"><tr className="border-b border-[#E5E7EB]"><HeaderCell label="Corporate Name" /><HeaderCell label="Connection Type" /><HeaderCell label="Data Posting Status" /><HeaderCell label="Data Receiving Status" /><HeaderCell label="Authentication Status" /><th className="px-5 py-4">View Received Data</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{paginatedDiag.map((d, i) => (<tr key={i} className="hover:bg-[#F9FAFB]"><td className="px-5 py-4">{d.corporate}</td><td className="px-5 py-4"><span className="px-2 py-1 rounded bg-slate-100 text-slate-700 text-xs">HRMS</span></td><td className={cn("px-5 py-4 font-medium", d.dataPosting === "Failed" ? "text-red-600" : d.dataPosting === "Success" ? "text-green-600" : "text-[#6B7280]")}>{d.dataPosting}</td><td className={cn("px-5 py-4 font-medium", d.dataReceiving === "Failed" ? "text-red-600" : d.dataReceiving === "Success" ? "text-green-600" : "text-[#6B7280]")}>{d.dataReceiving}</td><td className={cn("px-5 py-4 font-medium", d.authStatus === "Invalid" ? "text-red-600" : d.authStatus === "Valid" ? "text-green-600" : "text-[#6B7280]")}>{d.authStatus}</td><td className="px-5 py-4"><button className="text-dashboard-primary hover:underline">View</button></td></tr>))}</tbody></table></div>
+                <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden flex flex-col min-h-0"><div className="overflow-x-auto overflow-y-auto max-h-[70vh] min-h-0"><table className="w-full text-sm border-collapse min-w-[800px]"><thead className="bg-[#F9FAFB] sticky top-0 z-10"><tr className="border-b border-[#E5E7EB]"><HeaderCell label="Corporate Name" /><HeaderCell label="Connection Type" /><HeaderCell label="Data Posting Status" /><HeaderCell label="Data Receiving Status" /><HeaderCell label="Authentication Status" /><th className="px-5 py-4">View Received Data</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{paginatedDiag.map((d, i) => (<tr key={i} className="hover:bg-[#F9FAFB]"><td className="px-5 py-4">{d.corporate}</td><td className="px-5 py-4"><span className="px-2 py-1 rounded bg-slate-100 text-slate-700 text-xs">HRMS</span></td><td className={cn("px-5 py-4 font-medium", d.dataPosting === "Failed" ? "text-red-600" : d.dataPosting === "Success" ? "text-green-600" : "text-[#6B7280]")}>{d.dataPosting}</td><td className={cn("px-5 py-4 font-medium", d.dataReceiving === "Failed" ? "text-red-600" : d.dataReceiving === "Success" ? "text-green-600" : "text-[#6B7280]")}>{d.dataReceiving}</td><td className={cn("px-5 py-4 font-medium", d.authStatus === "Invalid" ? "text-red-600" : d.authStatus === "Valid" ? "text-green-600" : "text-[#6B7280]")}>{d.authStatus}</td><td className="px-5 py-4"><button className="text-dashboard-primary hover:underline">View</button></td></tr>))}</tbody></table></div>
                     <div className="px-6 py-4 border-t border-[#E5E7EB] bg-[#F9FAFB] flex justify-end items-center gap-2"><button disabled={diagPage <= 1} onClick={() => setDiagPage((p) => p - 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-50">‹</button><span className="text-sm text-[#6B7280]">Page {diagPage} of {diagTotalPages}</span><button disabled={diagPage >= diagTotalPages} onClick={() => setDiagPage((p) => p + 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-50">›</button></div>
                 </div>
             </>
