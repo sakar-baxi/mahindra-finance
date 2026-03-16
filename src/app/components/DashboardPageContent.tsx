@@ -709,8 +709,26 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
     );
 
     if (activePage === "dashboard") {
-        // RM Portal: only show Add a new corporate button; no analytics or reporting
+        // RM Portal: hero, quick actions, and global analytics across all employees and product offerings
         if (portalMode === "rm") {
+            const totalEmployees = employees.length;
+            const personalLoanCompleted = employees.filter((e) => employeeStatuses[e.id]?.status === "completed").length;
+            const personalLoanInProgress = employees.filter((e) => employeeStatuses[e.id]?.status === "in_progress").length;
+            const personalLoanInvited = employees.filter(
+                (e) => invitedEmployeeIds[e.id] && employeeStatuses[e.id]?.status !== "in_progress" && employeeStatuses[e.id]?.status !== "completed"
+            ).length;
+            const personalLoanNotStarted = totalEmployees - personalLoanCompleted - personalLoanInProgress - personalLoanInvited;
+            const personalLoanUtilization = totalEmployees > 0 ? Math.round((personalLoanCompleted / totalEmployees) * 100) : 0;
+
+            const productOfferings = [
+                { name: "Personal Loan", category: "Loans", eligible: totalEmployees, applied: personalLoanInProgress + personalLoanInvited, completed: personalLoanCompleted, utilization: personalLoanUtilization },
+                { name: "Salary Account", category: "Accounts", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
+                { name: "Wealth Advisory", category: "Wealth", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
+                { name: "Super Credit Card", category: "Cards", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
+                { name: "Health", category: "Benefits", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
+                { name: "Debit Card", category: "Cards", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
+            ];
+
             return (
                 <>
                     <div className="mb-8 rounded-2xl overflow-hidden shadow-lg" style={{ background: "linear-gradient(135deg, #C41E3A 0%, #9B1529 60%, #8B0000 100%)" }}>
@@ -719,7 +737,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                             <p className="text-sm md:text-base text-white/90 mt-1 max-w-xl">Manage corporates and employee personal loan journeys.</p>
                         </div>
                     </div>
-                    <div>
+                    <div className="mb-8">
                         <h2 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wider mb-5">Quick actions</h2>
                         <button
                             type="button"
@@ -729,6 +747,48 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                             <Building2 className="w-8 h-8" />
                             <span className="text-sm font-semibold">Add a new corporate</span>
                         </button>
+                    </div>
+                    <div className="mb-8">
+                        <h2 className="text-base font-bold text-[#111827] mb-5">Global analytics</h2>
+                        <p className="text-sm text-[#6B7280] mb-5">Aggregate metrics across all employees and product offerings.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                            <StatCard label="Total employees" value={totalEmployees} subtitle="Across all corporates" icon={<Users className="w-6 h-6" />} color="blue" />
+                            <StatCard label="Personal loan – Completed" value={personalLoanCompleted} subtitle="Journey completed" icon={<CheckCircle2 className="w-6 h-6" />} color="green" />
+                            <StatCard label="Personal loan – In progress" value={personalLoanInProgress} subtitle="Application started" icon={<Clock className="w-6 h-6" />} color="orange" />
+                            <StatCard label="Personal loan – Invited" value={personalLoanInvited} subtitle="Awaiting response" icon={<Send className="w-6 h-6" />} color="yellow" />
+                            <StatCard label="Personal loan – Not started" value={personalLoanNotStarted} subtitle="Eligible, not invited" icon={<Users className="w-6 h-6" />} color="grey" />
+                        </div>
+                        <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
+                            <h3 className="text-sm font-semibold text-[#111827] px-5 py-4 border-b border-[#E5E7EB]">Metrics by product offering</h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-collapse min-w-[640px]">
+                                    <thead className="bg-[#F9FAFB]">
+                                        <tr className="border-b border-[#E5E7EB]">
+                                            <th className="px-5 py-3 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Product</th>
+                                            <th className="px-5 py-3 text-left font-semibold text-[#374151] text-xs uppercase tracking-wide">Category</th>
+                                            <th className="px-5 py-3 text-right font-semibold text-[#374151] text-xs uppercase tracking-wide">Eligible</th>
+                                            <th className="px-5 py-3 text-right font-semibold text-[#374151] text-xs uppercase tracking-wide">Applied</th>
+                                            <th className="px-5 py-3 text-right font-semibold text-[#374151] text-xs uppercase tracking-wide">Completed</th>
+                                            <th className="px-5 py-3 text-right font-semibold text-[#374151] text-xs uppercase tracking-wide">Utilization %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#E5E7EB]">
+                                        {productOfferings.map((p) => (
+                                            <tr key={p.name} className="hover:bg-[#F9FAFB]">
+                                                <td className="px-5 py-3 font-medium text-[#111827]">{p.name}</td>
+                                                <td className="px-5 py-3 text-[#6B7280]">{p.category}</td>
+                                                <td className="px-5 py-3 text-right text-[#111827]">{p.eligible}</td>
+                                                <td className="px-5 py-3 text-right text-[#111827]">{p.applied}</td>
+                                                <td className="px-5 py-3 text-right text-[#111827]">{p.completed}</td>
+                                                <td className="px-5 py-3 text-right">
+                                                    <span className={cn("font-medium", p.utilization > 0 ? "text-emerald-600" : "text-[#6B7280]")}>{p.utilization}%</span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </>
             );
