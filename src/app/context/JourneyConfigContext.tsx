@@ -11,7 +11,7 @@ import React, {
 
 /* =============================================================================
    JOURNEY CONFIGURATION - Modular Building Block System
-   Clients can configure every aspect of the salary account opening journey.
+   Clients can configure every aspect of the account opening journey.
    ============================================================================= */
 
 export type DataSource = "bank-api" | "tartan-api" | "manual";
@@ -395,7 +395,7 @@ const DEFAULT_CTA_LABELS: CtaLabels = {
 const DEFAULT_STEP_TITLES: StepTitles = {
   welcome: "Verification",
   profileDetails: "Your Details",
-  autoConversion: "Convert to Salary Account",
+  autoConversion: "Convert to Savings Account",
   videoKyc: "Video KYC",
   reviewApplication: "Review Application",
   complete: "Submitted",
@@ -480,7 +480,7 @@ export const IDFC_JOURNEY_PRESET: Partial<JourneyConfigState> = {
     selectAccountVariant: "Select your Account Variant",
     addNominee: "You want to add a Nominee?",
     disclaimer: "Disclaimer",
-    autoConversion: "Convert to Salary Account",
+    autoConversion: "Convert to Savings Account",
     videoKyc: "Video KYC",
     reviewApplication: "Review Application",
     complete: "Submitted",

@@ -48,7 +48,7 @@ export default function StepAccountConversion() {
         return (
             <div className="space-y-6">
                 <AgentMessage isNew={false}>
-                    Account verified successfully! I've linked your existing Mahindra Finance portfolio to your new Priority Salary benefits.
+                    Account verified successfully! I've linked your existing Mahindra Finance portfolio to your new Priority benefits.
                 </AgentMessage>
                 <UserResponse isNew={false}>
                     <div className="flex flex-col gap-1">

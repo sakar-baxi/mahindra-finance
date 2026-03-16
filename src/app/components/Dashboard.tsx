@@ -712,7 +712,7 @@ function HREmployeeDetail({ employee, journeyStatus, onBack }: { employee: Emplo
     const totalDisbursed = journeyStatus?.status === "completed" ? "₹16.2L" : "—";
     const activeProducts = journeyStatus?.status === "completed" ? 3 : 0;
     const lastLogin = "18/2/2026";
-    const products = journeyStatus?.status === "completed" ? ["Mahindra Finance Salary Account", "Mahindra Finance Debit Card", "Mahindra Finance Personal Loan"] : [];
+    const products = journeyStatus?.status === "completed" ? ["Mahindra Finance Debit Card", "Mahindra Finance Personal Loan"] : [];
 
     return (
         <div className="space-y-6">

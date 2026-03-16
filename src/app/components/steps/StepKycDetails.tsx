@@ -55,10 +55,10 @@ export default function StepKycDetails() {
                         I hereby give my consent to complete my KYC through VCIP (Video Customer Identification Process) as
                         prescribed by RBI and processing of personal data (Name, PAN, DoB, Photograph, Lat/Long, Signature,
                         Economic and Financial Profile data) for KYC and agree to abide by the Terms and Conditions laid down
-                        by the Bank for Savings/Salary Account.
+                        by the Bank for Savings Account.
                     </p>
                     <p>
-                        I hereby authorize the Bank to open the Savings/Salary Account using Aadhaar OTP based e-KYC (non
+                        I hereby authorize the Bank to open the Savings Account using Aadhaar OTP based e-KYC (non
                         face-to-face) in case my Video KYC process is unsuccessful due to any reason, subject to RBI
                         guidelines.
                     </p>

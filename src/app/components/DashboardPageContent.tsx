@@ -722,7 +722,6 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
 
             const productOfferings = [
                 { name: "Personal Loan", category: "Loans", eligible: totalEmployees, applied: personalLoanInProgress + personalLoanInvited, completed: personalLoanCompleted, utilization: personalLoanUtilization },
-                { name: "Salary Account", category: "Accounts", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
                 { name: "Wealth Advisory", category: "Wealth", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
                 { name: "Super Credit Card", category: "Cards", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
                 { name: "Health", category: "Benefits", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
@@ -947,7 +946,6 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
             const corpMeta = corporatesTableData.find((c) => c.corporateName === selectedCorporate);
             const corpCategory = corpMeta?.corpCategory || "CAT A";
             const corpBenefitsBase = [
-                { name: "Mahindra Finance Salary Account", category: "Accounts", pct: 62, count: 780 },
                 { name: "Mahindra Finance Personal Loan", category: "Loans", pct: 45, count: 562 },
                 { name: "Mahindra Finance Super Credit Card", category: "Cards", pct: 68, count: 847 },
                 { name: "Mahindra Finance Health", category: "Benefits", pct: 89, count: 1109 },
@@ -957,7 +955,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
             const corpBenefits = corpBenefitsBase.map((b) => {
                 let enabled = true;
                 if (corpCategory === "CAT B" && b.name === "Mahindra Finance Wealth Advisory") enabled = false;
-                if (corpCategory === "CAT C" && b.category !== "Accounts") enabled = false;
+                if (corpCategory === "CAT C" && b.category !== "Loans") enabled = false;
                 return { ...b, enabled };
             });
             const corpKey = selectedCorporate;

@@ -10,7 +10,7 @@ export async function generateMetadata({
   const bankName = process.env.NEXT_PUBLIC_BANK_NAME || "Mahindra Finance";
   return {
     title: `Complete your account - ${bankName}`,
-    description: "Complete your salary account opening journey.",
+    description: "Complete your account opening journey.",
   };
 }
 

@@ -76,7 +76,7 @@ export default function StepAutoConversion() {
       <div className="page-header">
         <h1 className="page-title">{journeyConfig.stepTitles.autoConversion}</h1>
         <p className="page-subtitle">
-          Would you like to convert your existing Savings Account to a Salary Account?
+          Would you like to convert your existing Savings Account to your primary account?
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export default function StepAutoConversion() {
         <div className="rounded-[var(--radius-lg)] border border-gray-200 bg-white p-4 space-y-3">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-gray-900">Select account to convert</p>
-            <p className="helper-text !mt-0">Choose the Savings Account you want to convert to Salary.</p>
+            <p className="helper-text !mt-0">Choose the Savings Account you want to convert.</p>
           </div>
 
           <div className="space-y-2">
@@ -139,7 +139,7 @@ export default function StepAutoConversion() {
                   : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50",
               ].join(" ")}
             >
-              Create new salary account
+              Create new account
             </button>
           </div>
 

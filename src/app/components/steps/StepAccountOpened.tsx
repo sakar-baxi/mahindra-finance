@@ -40,7 +40,7 @@ export default function StepAccountOpened() {
                     Your {bankName} account is ready
                 </h1>
                 <p className="text-slate-600 text-base md:text-lg max-w-md leading-relaxed mb-2">
-                    Congratulations! Your salary account has been opened. To activate and access it, complete a quick Video KYC verification.
+                    Congratulations! Your account has been opened. To activate and access it, complete a quick Video KYC verification.
                 </p>
                 <p className="text-slate-500 text-sm mb-8">
                     You can finish Video KYC now in one sitting—it only takes a couple of minutes.

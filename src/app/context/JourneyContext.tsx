@@ -171,7 +171,7 @@ export const JourneyProvider = ({ children }: { children: ReactNode }) => {
     {
       id: "initial",
       title: "Mahindra Finance",
-      body: "Welcome! Start your premium salary account journey now.",
+      body: "Welcome! Start your premium account journey now.",
       timestamp: "Just now"
     }
   ]);

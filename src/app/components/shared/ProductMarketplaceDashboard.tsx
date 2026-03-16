@@ -34,7 +34,7 @@ export function openSalaryJourneyInNewTab(prefilled?: Record<string, unknown>) {
 }
 
 interface ProductMarketplaceDashboardProps {
-    /** Show the dark hero section (Welcome back, Upgrade to Salary Account) */
+    /** Show the dark hero section (Welcome back, product offers) */
     showHero?: boolean;
     /** User's first name for greeting */
     userName?: string;

@@ -38,11 +38,11 @@ export default function StepConversationalWelcome() {
     mountedRef.current = true;
     const sequence: Message[] = hasPrefilledData
       ? [
-          { role: "agent" as const, content: `Hi ${firstName}! Great to connect with you. I'm here to help you open your salary account with ${bankName}.` },
+          { role: "agent" as const, content: `Hi ${firstName}! Great to connect with you. I'm here to help you open your account with ${bankName}.` },
           { role: "agent" as const, content: `I've pulled your details from our HRMS sync—so we can skip the long forms. Just a quick review and you're good to go.` },
         ]
       : [
-          { role: "agent" as const, content: `Hi! I'm here to help you open your salary account with ${bankName}.` },
+          { role: "agent" as const, content: `Hi! I'm here to help you open your account with ${bankName}.` },
           { role: "agent" as const, content: `We couldn't fetch your details automatically. Please enter your details below to continue.` },
         ];
     let i = 0;

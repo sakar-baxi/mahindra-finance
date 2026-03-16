@@ -365,7 +365,7 @@ export default function CorporateOnboarding({ onComplete, onCancel }: CorporateO
                                 <ul className="space-y-2 text-sm text-[#6B7280] list-disc list-inside">
                                     <li>Monitor first sync in analytics.</li>
                                     <li>Configure product eligibility for this corporate.</li>
-                                    <li>Invite employees to activate salary accounts.</li>
+                                    <li>Invite employees to activate their accounts.</li>
                                 </ul>
                             </div>
                             <button onClick={handleComplete} className="h-10 px-5 bg-dashboard-primary text-white font-medium text-sm rounded-lg">
@@ -420,7 +420,7 @@ export default function CorporateOnboarding({ onComplete, onCancel }: CorporateO
                     <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                         <div className="p-5 border-b border-[#E5E7EB]">
                             <h3 className="text-lg font-bold text-[#111827]">Configure data mapping</h3>
-                            <p className="text-sm text-[#6B7280] mt-1">Core fields required for salary account journeys.</p>
+                            <p className="text-sm text-[#6B7280] mt-1">Core fields required for product journeys.</p>
                         </div>
                         <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
                             <div>

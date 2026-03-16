@@ -103,7 +103,7 @@ export default function StepVideoKyc() {
                                     processing of personal data (Name, PAN, DoB, Photograph, Lat/Long, Signature, Economic and Financial Profile data) for KYC.
                                 </p>
                                 <p>
-                                    I authorize the Bank to open Savings/Salary Account using Aadhaar OTP based e-KYC (non face-to-face) if Video KYC is unsuccessful,
+                                    I authorize the Bank to open Savings Account using Aadhaar OTP based e-KYC (non face-to-face) if Video KYC is unsuccessful,
                                     subject to RBI guidelines.
                                 </p>
                                 <p>
