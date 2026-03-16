@@ -24,6 +24,7 @@ import {
     Pencil,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     ChevronsUpDown,
     Package,
     HelpCircle,
@@ -166,6 +167,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
     const [hrStatusFilter, setHrStatusFilter] = React.useState("All Status");
     const [hrScoreFilter, setHrScoreFilter] = React.useState("All Scores");
     const [hrSearch, setHrSearch] = React.useState("");
+    const [corporateServicesDropdownOpen, setCorporateServicesDropdownOpen] = React.useState(false);
     const [corporateBenefitToggles, setCorporateBenefitToggles] = React.useState<Record<string, Record<number, boolean>>>(() => {
         if (typeof window === "undefined") return {};
         try {
@@ -828,7 +830,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
 
     if (activePage === "rm-products") {
         const products = [
-            { name: "Salary Account", desc: "Zero balance salary account for corporates", status: "Active" },
+            { name: "Mahindra Finance Wealth Advisory", desc: "Goal-based wealth advisory and investment services for employees", status: "Active" },
             { name: "Personal Loan", desc: "Pre-approved loans for employees", status: "Active" },
             { name: "Credit Card", desc: "Millennia & premium cards", status: "Active" },
             { name: "Home Loan", desc: "Special rates for salaried", status: "Coming soon" },
@@ -922,112 +924,102 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                 Configure services and view the employee directory for this corporate.
                             </p>
                         </div>
-                        {corpMeta && (
-                            <div className="flex flex-wrap gap-2">
-                                {corpMeta.corpCategory && (
-                                    <span
-                                        className={cn(
-                                            "px-2 py-1 rounded-full text-xs font-semibold",
-                                            corpMeta.corpCategory === "CAT A"
-                                                ? "bg-dashboard-primary-light text-dashboard-primary"
-                                                : corpMeta.corpCategory === "CAT B"
-                                                    ? "bg-amber-50 text-amber-700"
-                                                    : "bg-slate-100 text-slate-600"
-                                        )}
-                                    >
-                                        Category: {corpMeta.corpCategory}
-                                    </span>
-                                )}
-                                {corpMeta.kybStatus && (
-                                    <span
-                                        className={cn(
-                                            "px-2 py-1 rounded-full text-xs font-medium",
-                                            corpMeta.kybStatus === "Verified"
-                                                ? "bg-[#ECFDF5] text-[#059669]"
-                                                : corpMeta.kybStatus === "In Review"
-                                                    ? "bg-amber-50 text-amber-700"
-                                                    : "bg-slate-100 text-slate-600"
-                                        )}
-                                    >
-                                        KYB: {corpMeta.kybStatus}
-                                    </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {corpMeta && (
+                                <>
+                                    {corpMeta.corpCategory && (
+                                        <span
+                                            className={cn(
+                                                "px-2 py-1 rounded-full text-xs font-semibold",
+                                                corpMeta.corpCategory === "CAT A"
+                                                    ? "bg-dashboard-primary-light text-dashboard-primary"
+                                                    : corpMeta.corpCategory === "CAT B"
+                                                        ? "bg-amber-50 text-amber-700"
+                                                        : "bg-slate-100 text-slate-600"
+                                            )}
+                                        >
+                                            Category: {corpMeta.corpCategory}
+                                        </span>
+                                    )}
+                                    {corpMeta.kybStatus && (
+                                        <span
+                                            className={cn(
+                                                "px-2 py-1 rounded-full text-xs font-medium",
+                                                corpMeta.kybStatus === "Verified"
+                                                    ? "bg-[#ECFDF5] text-[#059669]"
+                                                    : corpMeta.kybStatus === "In Review"
+                                                        ? "bg-amber-50 text-amber-700"
+                                                        : "bg-slate-100 text-slate-600"
+                                            )}
+                                        >
+                                            KYB: {corpMeta.kybStatus}
+                                        </span>
+                                    )}
+                                </>
+                            )}
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setCorporateServicesDropdownOpen((o) => !o)}
+                                    className={cn(
+                                        "flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm font-medium transition-colors",
+                                        corporateServicesDropdownOpen
+                                            ? "border-dashboard-primary bg-dashboard-primary-light text-dashboard-primary"
+                                            : "border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB]"
+                                    )}
+                                >
+                                    Services ({corpBenefits.length})
+                                    <ChevronDown className={cn("w-4 h-4 transition-transform", corporateServicesDropdownOpen && "rotate-180")} />
+                                </button>
+                                {corporateServicesDropdownOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-10" aria-hidden onClick={() => setCorporateServicesDropdownOpen(false)} />
+                                        <div className="absolute right-0 top-full mt-1 z-20 w-[360px] max-h-[80vh] overflow-auto bg-white border border-[#E5E7EB] rounded-xl shadow-lg py-2">
+                                            <div className="px-3 pb-2 border-b border-[#E5E7EB] mb-2">
+                                                <h3 className="text-sm font-semibold text-[#111827]">Services for this corporate</h3>
+                                                <p className="text-xs text-[#6B7280] mt-0.5">Enable or disable schemes by category.</p>
+                                            </div>
+                                            <div className="space-y-0">
+                                                {corpBenefits.map((b, i) => (
+                                                    <div key={b.name} className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-[#F9FAFB]">
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-sm font-medium text-[#111827] truncate">{b.name}</p>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-[#F3F4F6] text-[#6B7280]">{b.category}</span>
+                                                                <span className="text-xs text-[#9CA3AF]">{b.pct}% · {b.count} eligible</span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setCorporateBenefitToggles((prev) => {
+                                                                    const existing = prev[corpKey] || {};
+                                                                    const current = corpToggles[i] ?? b.enabled;
+                                                                    return {
+                                                                        ...prev,
+                                                                        [corpKey]: { ...existing, [i]: !current },
+                                                                    };
+                                                                });
+                                                            }}
+                                                            className={cn(
+                                                                "w-10 h-5 rounded-full transition-colors shrink-0 flex items-center",
+                                                                (corpToggles[i] ?? b.enabled) ? "bg-dashboard-primary justify-end" : "bg-[#E5E7EB] justify-start"
+                                                            )}
+                                                        >
+                                                            <span className="w-4 h-4 rounded-full bg-white shadow-sm mx-0.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
-                        )}
+                        </div>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-8">
-                        <div className="space-y-4">
-                            <div>
-                                <h2 className="text-base font-bold text-[#111827]">Services for this corporate</h2>
-                                <p className="text-sm text-[#6B7280] mt-0.5">
-                                    Enable or disable schemes and offers for employees of this corporate based on its category.
-                                </p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {corpBenefits.map((b, i) => (
-                                    <div key={b.name} className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div>
-                                                <h3 className="font-semibold text-[#111827]">{b.name}</h3>
-                                                <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-[#6B7280]">
-                                                    {b.category}
-                                                </span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setCorporateBenefitToggles((prev) => {
-                                                        const existing = prev[corpKey] || {};
-                                                        const current = corpToggles[i] ?? b.enabled;
-                                                        return {
-                                                            ...prev,
-                                                            [corpKey]: {
-                                                                ...existing,
-                                                                [i]: !current,
-                                                            },
-                                                        };
-                                                    });
-                                                }}
-                                                className={cn(
-                                                    "w-11 h-6 rounded-full transition-colors shrink-0",
-                                                    (corpToggles[i] ?? b.enabled) ? "bg-dashboard-primary" : "bg-[#E5E7EB]"
-                                                )}
-                                            >
-                                                <span
-                                                    className={cn(
-                                                        "block w-4 h-4 rounded-full bg-white shadow-sm transition-transform",
-                                                        (corpToggles[i] ?? b.enabled) ? "translate-x-6" : "translate-x-1"
-                                                    )}
-                                                    style={{ marginTop: 2 }}
-                                                />
-                                            </button>
-                                        </div>
-                                        <p className="text-sm text-[#6B7280] mt-3">
-                                            Zero balance salary account and benefits for employees of this corporate.
-                                        </p>
-                                        <div className="mt-4">
-                                            <div className="flex justify-between text-sm mb-1">
-                                                <span className="text-[#6B7280]">Utilization Potential</span>
-                                                <span className="font-semibold text-[#111827]">{b.pct}%</span>
-                                            </div>
-                                            <div className="h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-dashboard-primary to-purple-500 rounded-full"
-                                                    style={{ width: `${b.pct}%` }}
-                                                />
-                                            </div>
-                                            <p className="text-xs text-[#9CA3AF] mt-2">
-                                                {b.count} employees eligible for this benefit
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div>
-                            <h2 className="text-base font-bold text-[#111827] mb-3">Employees</h2>
-                            {employeeDirectoryTable}
-                        </div>
+                    <div>
+                        <h2 className="text-base font-bold text-[#111827] mb-3">Employees</h2>
+                        {employeeDirectoryTable}
                     </div>
                 </>
             );
