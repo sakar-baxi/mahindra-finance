@@ -1,0 +1,510 @@
+/* Kotak811 Branding Theme - Design System */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+
+  /* ============================================
+     KOTAK811 DESIGN TOKENS (from branding_theme.md)
+     ============================================ */
+  :root {
+    /* Semantic tokens - HSL components (H S% L%) */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+    --primary: 231 100% 61%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 231 100% 96%;
+    --secondary-foreground: 231 100% 30%;
+    --muted: 210 25% 95%;
+    --muted-foreground: 215 15% 45%;
+    --accent: 343 100% 96%;
+    --accent-foreground: 343 100% 50%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 20% 90%;
+    --input: 215 20% 90%;
+    --ring: 231 100% 61%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    /* Chart palette */
+    --chart-1: 231 100% 61%;
+    --chart-2: 231 100% 50%;
+    --chart-3: 343 100% 50%;
+    --chart-4: 343 100% 65%;
+    --chart-5: 343 100% 75%;
+
+    /* Mahindra Finance theme - red (#C41E3A, #9B1529, #8B0000) */
+    --mahindra-red: #C41E3A;
+    --mahindra-red-dark: #9B1529;
+    --mahindra-red-light: #FFF5F5;
+    /* Legacy HDFC - kept for compatibility */
+    --hdfc-blue: #004C8F;
+    --hdfc-blue-dark: #003366;
+    --hdfc-blue-light: #E1EFFA;
+    --primary-bank: var(--mahindra-red);
+    --primary-bank-dark: var(--mahindra-red-dark);
+    --secondary-bank: var(--mahindra-red);
+
+    /* Dashboard & portals - Mahindra Finance (red) */
+    --dashboard-primary: #C41E3A;
+    --dashboard-primary-dark: #9B1529;
+    --dashboard-primary-light: #FFF5F5;
+
+    /* Neutrals */
+    --white: #FFFFFF;
+    --gray-50: #FCFCFD;
+    --gray-100: #F8F9FA;
+    --gray-200: #EEF1F3;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-800: #1F2937;
+    --gray-900: #111827;
+
+    /* Text hierarchy (for journey steps) */
+    --text-dark: 215 25% 15%;
+    --text-darkest: 215 30% 10%;
+    --text-gray-1: 215 15% 45%;
+    --text-gray-2: 215 15% 55%;
+    --text-gray-3: 215 15% 65%;
+
+    /* Functional */
+    --success: #059669;
+    --success-light: #D1FAE5;
+    --error: #DC2626;
+    --error-light: #FEE2E2;
+    --warning: #D97706;
+    --warning-light: #FEF3C7;
+
+    /* Shadows */
+    /* Screenshot-style theme for dashboard/portal screens only (not journeys) */
+  }
+  .dashboard-portal-theme {
+    --dashboard-primary: #2563EB;
+    --dashboard-primary-dark: #1D4ED8;
+    --dashboard-primary-light: #EFF6FF;
+  }
+
+  :root {
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    --shadow-primary: 0 4px 14px -2px rgba(56, 87, 255, 0.25), 0 2px 6px -2px rgba(56, 87, 255, 0.1);
+
+    /* Radii - Kotak811: 0.75rem for modern, slightly rounded */
+    --radius-sm: 0.5rem;
+    --radius: 0.75rem;
+    --radius-md: 0.625rem;
+    --radius-lg: 0.75rem;
+
+    /* Journey layout metrics */
+    --journey-header-h: 56px;
+    --journey-stepper-h: 52px;
+    --journey-bottom-bar-h: 72px;
+  }
+  @media (min-width: 768px) {
+    :root {
+      --journey-header-h: 56px;
+    }
+  }
+
+  /* ============================================
+     TYPOGRAPHY (Kotak811: Plus Jakarta Sans)
+     ============================================ */
+  * {
+    font-family: var(--font-sans), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  /* Prevent double scrollbars; use the app's internal scroll container. */
+  body {
+    overflow: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  h2 {
+    font-size: 24px;
+  }
+
+  h3 {
+    font-size: 20px;
+  }
+
+  h4 {
+    font-size: 18px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--gray-700);
+  }
+
+  /* ============================================
+     ENTERPRISE COMPONENTS
+     ============================================ */
+
+  /* Typeform-style card: wide, clean, minimal form feel */
+  .enterprise-card {
+    background: var(--white);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    padding: 48px 56px;
+    transition: border-color 0.15s ease;
+    position: relative;
+  }
+
+  .enterprise-card:hover {
+    border-color: rgba(226, 232, 240, 0.9);
+  }
+
+  @media (max-width: 640px) {
+    .enterprise-card {
+      padding: 28px 24px;
+      border-radius: 12px;
+    }
+  }
+
+  /* Form Input - Enhanced for better UX */
+  .enterprise-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 14px;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--gray-900);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    line-height: 1.4;
+    font-weight: 500;
+    min-height: 48px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+
+  /* Mobile compact mode: smaller text + controls to reduce scroll */
+  @media (max-width: 640px) {
+    .page-title {
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .form-label {
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .helper-text,
+    .error-text {
+      font-size: 12px;
+    }
+
+    .enterprise-input {
+      padding: 10px 12px;
+      font-size: 13px;
+      min-height: 44px;
+    }
+
+    .btn-primary {
+      font-size: 14px;
+    }
+  }
+
+  .enterprise-input::placeholder {
+    color: var(--gray-400);
+    font-weight: 400;
+  }
+
+  .enterprise-input:hover {
+    border-color: rgba(148, 163, 184, 0.9);
+  }
+
+  .enterprise-input:focus {
+    outline: none;
+    border-color: var(--primary-bank);
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--primary-bank) 15%, transparent),
+      0 1px 2px rgba(15, 23, 42, 0.06);
+  }
+
+  .enterprise-input:disabled {
+    background: var(--gray-100);
+    cursor: not-allowed;
+    color: var(--gray-500);
+    box-shadow: none;
+  }
+
+  .enterprise-input.error {
+    border-color: var(--error);
+  }
+
+  .enterprise-input.error:focus {
+    box-shadow: 0 0 0 3px var(--error-light);
+  }
+
+  /* Subtle attention highlight - uses --primary-bank (journey builder override) */
+  @keyframes attentionPulse {
+    0% {
+      border-color: color-mix(in srgb, var(--primary-bank) 25%, transparent);
+      box-shadow: 0 0 0 0 transparent;
+    }
+    50% {
+      border-color: color-mix(in srgb, var(--primary-bank) 45%, transparent);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary-bank) 10%, transparent);
+    }
+    100% {
+      border-color: color-mix(in srgb, var(--primary-bank) 25%, transparent);
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+
+  .attention-pulse {
+    animation: attentionPulse 6.5s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .attention-pulse {
+      animation: none;
+    }
+  }
+
+  /* Primary Button - uses --primary-bank (overridable via journey builder) */
+  .btn-primary {
+    background: var(--primary-bank);
+    color: white;
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-bank, var(--radius));
+    cursor: pointer;
+    transition: transform 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    line-height: 1;
+    height: 48px;
+    min-height: 48px;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-bank-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Secondary Button - uses --primary-bank (journey builder override) */
+  .btn-secondary {
+    background: var(--white);
+    color: var(--primary-bank);
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    border: 1.5px solid var(--gray-300);
+    border-radius: var(--radius-bank, var(--radius));
+    cursor: pointer;
+    transition: transform 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
+    min-height: 48px;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--primary-bank);
+    background: color-mix(in srgb, var(--primary-bank) 8%, white);
+  }
+
+  /* Hide scrollbars for horizontal steppers (mobile). */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Link Button - uses --primary-bank (journey builder override) */
+  .btn-link {
+    color: var(--primary-bank);
+    font-weight: 500;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s ease;
+  }
+
+  .btn-link:hover {
+    color: var(--primary-bank-dark);
+    text-decoration: underline;
+  }
+
+  /* Label - Improved consistency */
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+
+  /* Helper Text */
+  .helper-text {
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+
+  /* Error Text */
+  .error-text {
+    font-size: 12px;
+    color: var(--error);
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.4;
+  }
+
+  /* Progress Indicator - Thematic pill badge */
+  .step-progress-pill {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Trust Badge */
+  .trust-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--gray-500);
+    line-height: 1.4;
+  }
+
+  /* Page Header - Hero-style, clear section separation */
+  .page-header {
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid rgba(226, 232, 240, 0.8);
+    position: relative;
+  }
+
+  .page-header::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    width: 48px;
+    height: 2px;
+    background: var(--primary-bank);
+    border-radius: 0 1px 1px 0;
+  }
+
+  .page-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 6px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+
+  .page-subtitle {
+    font-size: 14px;
+    color: var(--gray-600);
+    line-height: 1.5;
+  }
+
+  /* Success Icon Container */
+  .success-icon {
+    width: 64px;
+    height: 64px;
+    background: var(--success-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+}
+
+@layer utilities {
+
+  /* Scrollbar styling (minimal) */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--gray-100);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-400);
+  }
+
+  /* Smooth transitions */
+  .smooth-transition {
+    transition: all 0.2s ease;
+  }
+}
