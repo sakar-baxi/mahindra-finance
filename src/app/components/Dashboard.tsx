@@ -465,7 +465,7 @@ export default function Dashboard() {
                 income: emp.income,
                 state: emp.state,
                 city: emp.jobLocationCity,
-                pincode: (emp as Record<string, unknown>).jobLocationPincode,
+                pincode: emp.jobLocationPincode,
                 department: emp.department,
                 grade: emp.grade,
             },

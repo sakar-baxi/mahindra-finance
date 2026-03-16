@@ -5,9 +5,9 @@
 import { useJourney } from "@/app/context/JourneyContext";
 import { JourneyType } from "@/app/context/stepDefinitions";
 import { Toggle } from "@/components/ui/toggle";
-import { CreditCard, ArrowRight, Zap, MessageCircle } from "lucide-react";
+import { CreditCard, ArrowRight, Zap, MessageCircle, PiggyBank } from "lucide-react";
 
-const JOURNEY_TYPES: JourneyType[] = ["ntb", "ntb-conversion", "etb-nk", "etb", "conversational"];
+const JOURNEY_TYPES: JourneyType[] = ["ntb", "ntb-conversion", "etb-nk", "etb", "conversational", "personal-loan"];
 
 const JOURNEY_DETAILS: Record<JourneyType, { label: string; icon: React.ElementType }> = {
   "ntb": { label: "Journey 1 (NTB)", icon: CreditCard },
@@ -15,6 +15,7 @@ const JOURNEY_DETAILS: Record<JourneyType, { label: string; icon: React.ElementT
   "etb-nk": { label: "Journey 2 (ETB-NK)", icon: CreditCard },
   "etb": { label: "Journey 3 (ETB)", icon: Zap },
   "conversational": { label: "Conversational", icon: MessageCircle },
+  "personal-loan": { label: "Personal Loan", icon: PiggyBank },
 };
 
 export default function DemoToggle() {
