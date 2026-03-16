@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
     Building2,
@@ -82,6 +82,16 @@ export default function CorporateOnboarding({ onComplete, onCancel }: CorporateO
     const [notes, setNotes] = useState("");
     const [showDataMappingModal, setShowDataMappingModal] = useState(false);
 
+    // Corporate category from MFSL rule engine (derived from KYB inputs); shown once KYB verification is complete
+    const kybCorpCategory = useMemo((): "CAT A" | "CAT B" | "CAT C" => {
+        const name = (form.companyName || "").trim().toUpperCase();
+        if (!name) return "CAT A";
+        const code = name.charCodeAt(0);
+        if (code >= 65 && code <= 77) return "CAT A";
+        if (code >= 78 && code <= 82) return "CAT B";
+        return "CAT C";
+    }, [form.companyName]);
+
     const currentStepId = ONBOARDING_STEPS[currentStepIndex].id;
     const isLastStep = currentStepIndex === ONBOARDING_STEPS.length - 1;
 
@@ -93,7 +103,7 @@ export default function CorporateOnboarding({ onComplete, onCancel }: CorporateO
             status: "Active",
             contactName: form.pocName,
             dateAdded: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            corpCategory: "CAT A",
+            corpCategory: kybCorpCategory,
             kybStatus: "Verified",
         };
         onComplete(corp);
@@ -174,12 +184,18 @@ export default function CorporateOnboarding({ onComplete, onCancel }: CorporateO
                         <div className="space-y-6">
                             <div className="p-2 px-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-medium w-fit">Corporate details confirmed ✓</div>
                             <h2 className="text-lg font-bold text-[#111827]">KYB verification complete</h2>
-                            <p className="text-sm text-[#6B7280]">We&apos;ve verified the business and compliance status.</p>
+                            <p className="text-sm text-[#6B7280]">We&apos;ve verified the business and compliance status. Corporate categorisation for prospecting is based on the Mahindra MFSL rule engine using KYB inputs.</p>
                             <div className="rounded-xl border border-[#E5E7EB] p-6 space-y-4">
                                 <div className="flex justify-between"><span className="text-sm text-[#6B7280]">Status</span><span className="font-medium text-emerald-600">Verified</span></div>
                                 <div className="flex justify-between"><span className="text-sm text-[#6B7280]">Business registration</span><span className="font-medium">Matches GST/CIN</span></div>
                                 <div className="flex justify-between"><span className="text-sm text-[#6B7280]">Corporate structure</span><span className="font-medium">Validated</span></div>
                                 <div className="flex justify-between"><span className="text-sm text-[#6B7280]">Tax checks</span><span className="font-medium">No issues detected</span></div>
+                                <div className="flex justify-between items-center pt-2 border-t border-[#E5E7EB]">
+                                    <span className="text-sm text-[#6B7280]">Corporate category (MFSL)</span>
+                                    <span className={cn("px-2 py-1 rounded-full text-xs font-semibold", kybCorpCategory === "CAT A" ? "bg-dashboard-primary-light text-dashboard-primary" : kybCorpCategory === "CAT B" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600")}>
+                                        {kybCorpCategory}
+                                    </span>
+                                </div>
                             </div>
                             <div className="flex gap-3">
                                 <button onClick={goBack} className="h-10 px-5 border border-[#E5E7EB] text-[#374151] font-medium text-sm rounded-lg hover:bg-[#F9FAFB] flex items-center gap-2">

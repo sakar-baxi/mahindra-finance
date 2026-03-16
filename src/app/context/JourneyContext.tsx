@@ -134,9 +134,15 @@ const getInitialStepsForJourney = (
       break;
     case "personal-loan":
       stepIds = [
-        makeJourneyStepId("personal-loan", "selectCategory"),
-        makeJourneyStepId("personal-loan", "contactEmployment"),
+        makeJourneyStepId("personal-loan", "verifyIdentity"),
+        makeJourneyStepId("personal-loan", "otpVerify"),
+        makeJourneyStepId("personal-loan", "ekycAadhaar"),
+        makeJourneyStepId("personal-loan", "ekycAadhaarOtp"),
         makeJourneyStepId("personal-loan", "personalDetails"),
+        makeJourneyStepId("personal-loan", "addressIncomeRegulatory"),
+        makeJourneyStepId("personal-loan", "reviewApplication"),
+        makeJourneyStepId("personal-loan", "documentCollection"),
+        makeJourneyStepId("personal-loan", "bureauResponse"),
         makeJourneyStepId("personal-loan", "complete"),
       ];
       break;
@@ -447,6 +453,13 @@ export const JourneyProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
+        // If opened via RM Invite, do not restore any saved session; let page.tsx start the journey
+        const pendingInvite = localStorage.getItem('pendingInvite');
+        if (pendingInvite) {
+          setIsInitialized(true);
+          return;
+        }
+
         const params = new URLSearchParams(window.location.search);
         const isResumeUrl = params.get('resume') === 'true';
         if (isResumeUrl) setIsResumeFlow(true);

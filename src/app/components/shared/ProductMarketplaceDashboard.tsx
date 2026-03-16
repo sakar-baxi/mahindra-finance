@@ -2,16 +2,12 @@
 
 import React, { useState } from "react";
 import {
-    CreditCard,
-    PiggyBank,
-    Zap,
     ChevronRight,
-    Wallet,
     Building2,
-    TrendingUp,
-    Shield,
-    Landmark,
+    Car,
+    Home,
     FileText,
+    PiggyBank,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,28 +38,24 @@ interface ProductMarketplaceDashboardProps {
     onViewAllOffers?: () => void;
 }
 
+// Lending-only: no core banking (no Salary, deposits, cards, wealth, health)
 const FEATURED_PRODUCTS = [
-    { icon: PiggyBank, tag: "PRE-APPROVED", title: "Mahindra Finance Personal Loan", desc: "From unexpected expenses to big dreams, our Personal Loans have got you covered.", benefit: "Up to ₹15L", isPrimary: true },
-    { icon: CreditCard, tag: "OFFER", title: "Vehicle Loan", desc: "Tractor, car, commercial vehicle and three-wheeler financing.", benefit: "Flexible tenure", isPrimary: false },
-    { icon: Wallet, tag: "OFFER", title: "Fixed Deposits & Mutual Funds", desc: "Grow your savings with competitive returns.", benefit: "Secure returns", isPrimary: false },
+    { icon: FileText, tag: "PRE-APPROVED", title: "Mahindra Finance Personal Loan", desc: "From unexpected expenses to big dreams, our Personal Loans have got you covered.", benefit: "Up to ₹15L", isPrimary: true },
+    { icon: Car, tag: "OFFER", title: "Car Loan", desc: "Tractor, car, commercial vehicle and three-wheeler financing.", benefit: "Flexible tenure", isPrimary: false },
+    { icon: Home, tag: "OFFER", title: "Home Loan", desc: "Home loans and refinancing at competitive rates for salaried employees.", benefit: "Low EMI", isPrimary: false },
 ];
 
 const MARKETPLACE_CATEGORIES = [
-    { id: "all", label: "All Products", icon: Building2 },
-    { id: "deposits", label: "Deposits", icon: Landmark },
-    { id: "cards", label: "Cards", icon: CreditCard },
+    { id: "all", label: "All (Lending)", icon: Building2 },
     { id: "loans", label: "Loans", icon: PiggyBank },
-    { id: "investments", label: "Investments", icon: TrendingUp },
-    { id: "insurance", label: "Insurance", icon: Shield },
 ] as const;
 
 const MARKETPLACE_PRODUCTS = [
-    { id: "fd", category: "deposits", tag: "SECURE", title: "Fixed & Recurring Deposits", desc: "Grow savings with high interest rates (up to 7.40% p.a.) or start small with systematic...", highlight: "Up to 7.40% p.a.", icon: Landmark },
-    { id: "cc", category: "cards", tag: "REWARDS", title: "Mahindra Finance Credit Cards", desc: "Reward-focused credit cards with exclusive dining and travel offers.", highlight: "Lifetime Free Options", icon: CreditCard },
+    { id: "car", category: "loans", tag: "FAST", title: "Car Loan", desc: "Vehicle financing for new and used cars, tractors and commercial vehicles.", highlight: "Flexible tenure", icon: Car },
+    { id: "business", category: "loans", tag: "GROW", title: "Business Loan", desc: "Business financing for eligible corporates and self-employed.", highlight: "Quick disbursal", icon: Building2 },
+    { id: "home", category: "loans", tag: "LOW RATE", title: "Home Loan", desc: "Home loans and refinancing at competitive rates.", highlight: "From 8.45% p.a.", icon: Home },
     { id: "pl", category: "loans", tag: "FAST", title: "Mahindra Finance Personal Loan", desc: "Quick personal loans with minimal documentation for your needs.", highlight: "Instant Approval", icon: FileText },
-    { id: "demat", category: "investments", tag: "TRADING", title: "Demat & Trading", desc: "Seamless trading with leading partners. Zero brokerage offers on intraday.", highlight: "Zero Brokerage", icon: TrendingUp },
-    { id: "nps", category: "investments", tag: "RETIREMENT", title: "Corporate NPS", desc: "Secure your retirement with National Pension System corporate benefits.", highlight: "Tax Benefits", icon: Building2 },
-    { id: "life", category: "insurance", tag: "PROTECTION", title: "Life Insurance", desc: "Comprehensive life coverage to secure your family's future.", highlight: "High Coverage", icon: Shield },
+    { id: "lap", category: "loans", tag: "SECURE", title: "LAP (Loan Against Property)", desc: "Loan against property for business or personal needs.", highlight: "High value", icon: PiggyBank },
 ];
 
 export default function ProductMarketplaceDashboard({
@@ -102,8 +94,8 @@ export default function ProductMarketplaceDashboard({
                         <div className="flex flex-wrap gap-6">
                             {[
                                 { icon: PiggyBank, label: "Up to ₹15L", sub: "Competitive rates" },
-                                { icon: Wallet, label: "Minimal docs", sub: "Paperless process" },
-                                { icon: CreditCard, label: "Flexible tenure", sub: "Easy EMIs" },
+                                { icon: FileText, label: "Minimal docs", sub: "Paperless process" },
+                                { icon: Home, label: "Flexible tenure", sub: "Easy EMIs" },
                             ].map(({ icon: Icon, label, sub }) => (
                                 <div key={label} className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-full border-2 border-white/30 flex items-center justify-center shrink-0">
@@ -173,8 +165,8 @@ export default function ProductMarketplaceDashboard({
 
             {/* Product Marketplace */}
             <div className="bg-white rounded-2xl border border-[#E8EAED] p-6 md:p-8 shadow-sm">
-                <h2 className="text-xl font-bold text-[#111827]">Product Marketplace</h2>
-                <p className="text-sm text-[#6B7280] mt-0.5 mb-6">Explore financial products & services tailored for you</p>
+                <h2 className="text-xl font-bold text-[#111827]">Lending products</h2>
+                <p className="text-sm text-[#6B7280] mt-0.5 mb-6">Lending only. Explore loans tailored for you.</p>
                 <div className="flex flex-wrap gap-2 mb-6">
                     {MARKETPLACE_CATEGORIES.map(({ id, label, icon: Icon }) => (
                         <button

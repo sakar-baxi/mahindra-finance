@@ -28,6 +28,8 @@ import {
     ChevronsUpDown,
     Package,
     HelpCircle,
+    BarChart3,
+    TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DATA_MODELS_RESPONSE } from "@/lib/dataModelsConfig";
@@ -47,7 +49,7 @@ type DataModelCategory = Record<string, DataModelField>;
 type DataModelsData = Record<string, DataModelCategory>;
 
 export type PageKey = "dashboard" | "connections" | "reporting" | "corporates" | "integrations" | "data-models" | "webhooks" | "diagnostics" | "rm-employees" | "rm-products" | "rm-analytics" | "hr-overview" | "hr-employees";
-export type TabKey = "directory" | "accountOpened";
+export type TabKey = "directory" | "accountOpened" | "analytics";
 
 // Minimal interface - accepts any Employee-like object
 export interface Employee {
@@ -179,7 +181,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
     });
 
     // HR Manage employees: tabs, shared state, selection, modals
-    const [hrEmployeesMainTab, setHrEmployeesMainTab] = React.useState<"directory" | "updates" | "manage">("directory");
+    const [hrEmployeesMainTab, setHrEmployeesMainTab] = React.useState<"directory" | "updates" | "manage" | "mmfsl-loans">("directory");
     const [manageSubTab, setManageSubTab] = React.useState<"shared" | "unshared">("unshared");
     const [sharedEmployeeIds, setSharedEmployeeIds] = React.useState<Record<string, boolean>>(() => {
         if (typeof window === "undefined") return {};
@@ -243,8 +245,9 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
     const completedEmployees = filterEmployees(employees.filter((e) => employeeStatuses[e.id]?.status === "completed"));
     const corpEmployees = selectedCorporate ? filterEmployees(employees.filter((e) => (e.companyName || "Chola Business Services") === selectedCorporate)) : [];
     const corpCompleted = selectedCorporate ? filterEmployees(employees.filter((e) => (e.companyName || "Chola Business Services") === selectedCorporate && employeeStatuses[e.id]?.status === "completed")) : [];
-    const baseList = activeTab === "accountOpened" ? (selectedCorporate ? corpCompleted : completedEmployees) : (selectedCorporate ? corpEmployees : allFiltered);
+    const baseList = activeTab === "accountOpened" ? (selectedCorporate ? corpCompleted : completedEmployees) : activeTab === "analytics" ? (selectedCorporate ? corpEmployees : allFiltered) : (selectedCorporate ? corpEmployees : allFiltered);
     const currentList = portalMode === "rm" && (rmTenureFilter || rmAgeFilter || rmGradeFilter || rmIncomeFilter || rmDeptFilter) ? applyRmFilters(baseList) : baseList;
+    const analyticsList = selectedCorporate ? corpEmployees : allFiltered;
     const currentPage = activeTab === "accountOpened" ? accountOpenedPage : directoryPage;
     const setCurrentPage = activeTab === "accountOpened" ? setAccountOpenedPage : setDirectoryPage;
     const totalPages = Math.max(1, Math.ceil(currentList.length / ITEMS_PER_PAGE));
@@ -369,6 +372,13 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                     >
                         Manage employees
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setHrEmployeesMainTab("mmfsl-loans")}
+                        className={cn("pb-3 text-sm font-semibold border-b-2 -mb-px transition-colors", hrEmployeesMainTab === "mmfsl-loans" ? "border-dashboard-primary text-dashboard-primary" : "border-transparent text-[#6B7280] hover:text-[#111827]")}
+                    >
+                        MMFSL Product penetration
+                    </button>
                 </div>
 
                 {hrEmployeesMainTab === "directory" && (
@@ -429,6 +439,119 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                         <p className="text-[#6B7280] text-sm">No updates.</p>
                     </div>
                 )}
+
+                {hrEmployeesMainTab === "mmfsl-loans" && (() => {
+                    // MMFSL product penetration: loan details from HRMS + feedback from MMFSL LMS
+                    const offered = hrEmployees.filter((e) => invitedEmployeeIds[e.id]);
+                    const accepted = hrEmployees.filter((e) => {
+                        const s = employeeStatuses[e.id]?.status;
+                        return s === "in_progress" || s === "completed";
+                    });
+                    const disbursed = hrEmployees.filter((e) => employeeStatuses[e.id]?.status === "completed");
+                    const getMockLoan = (emp: TEmployee): { product: "PL" | "LAP"; amount: number; rate: number; tenureMonths: number; disbursalStatus: "Disbursed" | "Accepted" | "Offered" } => {
+                        const status = employeeStatuses[emp.id]?.status;
+                        const invited = !!invitedEmployeeIds[emp.id];
+                        const hash = (emp.id + (emp as { income?: string }).income).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+                        const incomeNum = parseInt((emp as { income?: string }).income || "1200000", 10);
+                        const plAmount = Math.min(incomeNum * 2, 1500000);
+                        const hasLap = hash % 5 === 0 && status === "completed";
+                        const amount = hasLap ? Math.round(plAmount * 1.5) : plAmount;
+                        const rate = 10.5 + (hash % 30) / 10;
+                        const tenure = 24 + (hash % 36);
+                        let disbursalStatus: "Disbursed" | "Accepted" | "Offered" = "Offered";
+                        if (status === "completed") disbursalStatus = "Disbursed";
+                        else if (status === "in_progress" || invited) disbursalStatus = "Accepted";
+                        return { product: hasLap ? "LAP" : "PL", amount, rate, tenureMonths: tenure, disbursalStatus };
+                    };
+                    const loanRows = hrEmployees.filter((e) => invitedEmployeeIds[e.id] || employeeStatuses[e.id]?.status === "in_progress" || employeeStatuses[e.id]?.status === "completed");
+                    const totalPlAmount = disbursed.reduce((sum, e) => {
+                        const l = getMockLoan(e);
+                        return sum + (l.product === "PL" ? l.amount : 0);
+                    }, 0);
+                    const totalLapAmount = disbursed.reduce((sum, e) => {
+                        const l = getMockLoan(e);
+                        return sum + (l.product === "LAP" ? l.amount : 0);
+                    }, 0);
+                    const allRates = loanRows.map((e) => getMockLoan(e).rate);
+                    const avgRate = allRates.length ? (allRates.reduce((a, b) => a + b, 0) / allRates.length).toFixed(1) : "—";
+                    return (
+                        <>
+                            <p className="text-sm text-[#6B7280] mb-4">
+                                Data synced from MMFSL LMS. Last updated: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} (feedback loop from MMFSL LMS)
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Offered</p>
+                                    <p className="text-2xl font-bold text-[#111827] mt-1">{offered.length}</p>
+                                    <p className="text-xs text-[#9CA3AF] mt-0.5">Employees offered loans</p>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Accepted</p>
+                                    <p className="text-2xl font-bold text-[#111827] mt-1">{accepted.length}</p>
+                                    <p className="text-xs text-[#9CA3AF] mt-0.5">Accepted / In process</p>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Disbursed</p>
+                                    <p className="text-2xl font-bold text-emerald-600 mt-1">{disbursed.length}</p>
+                                    <p className="text-xs text-[#9CA3AF] mt-0.5">Loans disbursed</p>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total PL</p>
+                                    <p className="text-xl font-bold text-[#111827] mt-1">₹{(totalPlAmount / 100000).toFixed(1)}L</p>
+                                    <p className="text-xs text-[#9CA3AF] mt-0.5">Personal loan disbursed</p>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Total LAP</p>
+                                    <p className="text-xl font-bold text-[#111827] mt-1">₹{(totalLapAmount / 100000).toFixed(1)}L</p>
+                                    <p className="text-xs text-[#9CA3AF] mt-0.5">Loan against property</p>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Avg rate</p>
+                                    <p className="text-2xl font-bold text-[#111827] mt-1">{avgRate}%</p>
+                                    <p className="text-xs text-[#9CA3AF] mt-0.5">Weighted avg interest</p>
+                                </div>
+                            </div>
+                            <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-[#E5E7EB] bg-[#F9FAFB]">
+                                    <h2 className="text-sm font-semibold text-[#111827]">Loan details (MMFSL product penetration)</h2>
+                                    <p className="text-xs text-[#6B7280] mt-0.5">Employees offered or accepted loans — PL, Amt, Rate, Tenure, LAP, Disbursal</p>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm border-collapse min-w-[800px]">
+                                        <thead className="bg-[#F9FAFB]">
+                                            <tr className="border-b border-[#E5E7EB]">
+                                                <HeaderCell label="Employee" />
+                                                <HeaderCell label="Product" />
+                                                <HeaderCell label="Amount" />
+                                                <HeaderCell label="Rate" />
+                                                <HeaderCell label="Tenure" />
+                                                <HeaderCell label="Disbursal" />
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-[#E5E7EB]">
+                                            {loanRows.length === 0 ? (
+                                                <tr><td colSpan={6} className="px-5 py-12 text-center text-[#6B7280]">No loan offers yet. Invite employees from RM portal to see offers here.</td></tr>
+                                            ) : loanRows.map((emp) => {
+                                                const loan = getMockLoan(emp);
+                                                const name = (employeeStatuses[emp.id] as { name?: string })?.name || emp.name;
+                                                return (
+                                                    <tr key={emp.id} className="hover:bg-[#F9FAFB]">
+                                                        <td className="px-5 py-4"><div><button type="button" onClick={() => setSelectedEmployee(emp)} className="text-dashboard-primary font-semibold hover:underline text-left">{name}</button><p className="text-xs text-[#9CA3AF]">{emp.id}</p></div></td>
+                                                        <td className="px-5 py-4"><span className={cn("px-2 py-1 rounded-full text-xs font-semibold", loan.product === "LAP" ? "bg-violet-50 text-violet-700 border border-violet-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>{loan.product}</span></td>
+                                                        <td className="px-5 py-4 font-medium">₹{(loan.amount / 100000).toFixed(2)}L</td>
+                                                        <td className="px-5 py-4">{loan.rate.toFixed(1)}%</td>
+                                                        <td className="px-5 py-4">{loan.tenureMonths} mo</td>
+                                                        <td className="px-5 py-4"><span className={cn("px-2 py-1 rounded-full text-xs font-semibold", loan.disbursalStatus === "Disbursed" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : loan.disbursalStatus === "Accepted" ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-slate-50 text-slate-600 border border-slate-200")}>{loan.disbursalStatus}</span></td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    );
+                })()}
 
                 {hrEmployeesMainTab === "manage" && (
                     <>
@@ -652,9 +775,280 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                     className={cn("pb-3 text-sm font-semibold border-b-2 -mb-px transition-colors", activeTab === "accountOpened" ? "border-dashboard-primary text-dashboard-primary" : "border-transparent text-[#6B7280] hover:text-[#111827]")}>
                     Account Opened <span className="ml-2 text-xs font-normal text-[#9CA3AF]">({selectedCorporate ? corpCompleted.length : completedEmployees.length})</span>
                 </button>
+                {portalMode === "rm" && (
+                    <button type="button" onClick={() => setActiveTab("analytics")}
+                        className={cn("pb-3 text-sm font-semibold border-b-2 -mb-px transition-colors flex items-center gap-1.5", activeTab === "analytics" ? "border-dashboard-primary text-dashboard-primary" : "border-transparent text-[#6B7280] hover:text-[#111827]")}>
+                        <BarChart3 className="w-4 h-4" /> Analytics
+                    </button>
+                )}
             </div>
             <div className="flex-1 flex flex-col min-h-0">
-                <h2 className="text-base font-bold text-[#111827] mb-4">{activeTab === "accountOpened" ? "Account Opened" : "Employee Directory"} <span className="ml-2 text-sm font-normal text-[#6B7280]">({currentList.length} employee{currentList.length !== 1 ? "s" : ""})</span></h2>
+                <h2 className="text-base font-bold text-[#111827] mb-4">{activeTab === "accountOpened" ? "Account Opened" : activeTab === "analytics" ? "Corporate analytics" : "Employee Directory"} <span className="ml-2 text-sm font-normal text-[#6B7280]">({activeTab === "analytics" ? analyticsList.length : currentList.length} employee{(activeTab === "analytics" ? analyticsList.length : currentList.length) !== 1 ? "s" : ""})</span></h2>
+                {activeTab === "analytics" ? (() => {
+                    const list = analyticsList;
+                    const getAge = (e: TEmployee) => {
+                        const dob = (e as Record<string, unknown>).dob as string | undefined;
+                        if (!dob) return null;
+                        return new Date().getFullYear() - parseInt(dob.slice(0, 4), 10);
+                    };
+                    const getCreditScore = (e: TEmployee) => 650 + ((e.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 150);
+                    const ageBrackets = [
+                        { label: "25–30", min: 25, max: 30 },
+                        { label: "31–35", min: 31, max: 35 },
+                        { label: "36–40", min: 36, max: 40 },
+                        { label: "41–45", min: 41, max: 45 },
+                        { label: "46–50", min: 46, max: 50 },
+                        { label: "50+", min: 51, max: 99 },
+                    ];
+                    const ageDistribution = ageBrackets.map((b) => ({
+                        ...b,
+                        count: list.filter((e) => { const a = getAge(e); return a != null && a >= b.min && a <= b.max; }).length,
+                    }));
+                    const departments = Array.from(new Set(list.map((e) => (e as Record<string, unknown>).department as string).filter(Boolean))).sort();
+                    const deptAgeSplit = departments.map((dept) => {
+                        const inDept = list.filter((e) => ((e as Record<string, unknown>).department as string) === dept);
+                        const ages = inDept.map((e) => getAge(e)).filter((a): a is number => a != null);
+                        const avgAge = ages.length ? Math.round(ages.reduce((s, a) => s + a, 0) / ages.length) : 0;
+                        const byBracket = ageBrackets.map((b) => inDept.filter((e) => { const a = getAge(e); return a != null && a >= b.min && a <= b.max; }).length);
+                        return { dept, avgAge, byBracket, total: inDept.length };
+                    });
+                    const creditBands = [
+                        { label: "750+", min: 750, max: 900 },
+                        { label: "700–749", min: 700, max: 749 },
+                        { label: "650–699", min: 650, max: 699 },
+                        { label: "600–649", min: 600, max: 649 },
+                        { label: "<600", min: 0, max: 599 },
+                    ];
+                    const creditDistribution = creditBands.map((b) => ({
+                        ...b,
+                        count: list.filter((e) => { const s = getCreditScore(e); return s >= b.min && s <= b.max; }).length,
+                    }));
+                    const incomeBands = ["800000", "1200000", "1500000", "1800000", "2200000", "2600000", "3000000"];
+                    const salarySplit = incomeBands.map((inc) => ({
+                        label: `₹${(parseInt(inc, 10) / 100000).toFixed(0)}L`,
+                        count: list.filter((e) => ((e as Record<string, unknown>).income as string) === inc).length,
+                    }));
+                    const completedCount = list.filter((e) => employeeStatuses[e.id]?.status === "completed").length;
+                    const completionRate = list.length ? Math.round((completedCount / list.length) * 100) : 0;
+                    const primeShare = list.length ? Math.round((list.filter((e) => getCreditScore(e) >= 750).length / list.length) * 100) : 0;
+                    const getTenureMonths = (e: TEmployee) => {
+                        const doj = (e as Record<string, unknown>).dateOfJoining as string | undefined;
+                        if (!doj) return 0;
+                        const [y, m] = doj.split("-").map(Number);
+                        const now = new Date();
+                        return (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m);
+                    };
+                    const stableShare = list.length ? Math.round((list.filter((e) => getTenureMonths(e) >= 24).length / list.length) * 100) : 0;
+                    const avgSalaryL = list.length
+                        ? (list.reduce((s, e) => s + parseInt(String((e as Record<string, unknown>).income || 0), 10), 0) / list.length / 100000).toFixed(1)
+                        : "0";
+
+                    // Corporate Potential: loan potential per employee from Bureau (credit) + salary, experience, age, tenure, grade, department (underwriting policy)
+                    const getLoanPotential = (e: TEmployee) => {
+                        const salary = parseInt(String((e as Record<string, unknown>).income || 0), 10) || 0;
+                        const score = getCreditScore(e);
+                        const tenureMonths = getTenureMonths(e);
+                        const age = getAge(e);
+                        const grade = (e as Record<string, unknown>).grade as string | undefined;
+                        const dept = (e as Record<string, unknown>).department as string | undefined;
+                        let multiple = 1.5;
+                        if (score >= 750) multiple += 0.8;
+                        else if (score >= 700) multiple += 0.4;
+                        else if (score >= 650) multiple += 0.1;
+                        else if (score < 600) multiple -= 0.5;
+                        if (tenureMonths >= 36) multiple += 0.3;
+                        else if (tenureMonths >= 24) multiple += 0.2;
+                        else if (tenureMonths < 12) multiple -= 0.2;
+                        if (age != null && age >= 30 && age <= 45) multiple += 0.1;
+                        const gradeBoost = grade && /[5-8]/.test(grade) ? 0.15 : 0;
+                        multiple += gradeBoost;
+                        const deptRisk = dept && ["Finance", "Operations", "Legal"].includes(dept) ? 0.05 : 0;
+                        multiple += deptRisk;
+                        return Math.max(0, Math.round((salary * multiple) / 100000) * 100000);
+                    };
+                    const getRiskSegment = (e: TEmployee): "Prime" | "Standard" | "Sub-prime" => {
+                        const score = getCreditScore(e);
+                        const tenureMonths = getTenureMonths(e);
+                        const salary = parseInt(String((e as Record<string, unknown>).income || 0), 10) || 0;
+                        const medianSalary = list.length ? list.reduce((s, emp) => s + parseInt(String((emp as Record<string, unknown>).income || 0), 10), 0) / list.length : 0;
+                        if (score >= 750 && tenureMonths >= 24 && salary >= medianSalary * 0.9) return "Prime";
+                        if (score < 650 || tenureMonths < 12) return "Sub-prime";
+                        return "Standard";
+                    };
+                    const potentialByEmployee = list.map((e) => ({ emp: e, potential: getLoanPotential(e), segment: getRiskSegment(e) }));
+                    const totalLoanPotential = potentialByEmployee.reduce((s, x) => s + x.potential, 0);
+                    const potentialPrime = potentialByEmployee.filter((x) => x.segment === "Prime");
+                    const potentialStandard = potentialByEmployee.filter((x) => x.segment === "Standard");
+                    const potentialSubPrime = potentialByEmployee.filter((x) => x.segment === "Sub-prime");
+                    const formatCr = (n: number) => (n >= 10000000 ? `${(n / 10000000).toFixed(1)} Cr` : `${(n / 100000).toFixed(0)} L`);
+
+                    return (
+                        <div className="space-y-6 flex-1 overflow-y-auto">
+                            <p className="text-sm text-[#6B7280]">Underwriting-style metrics to assess corporate engagement potential. Based on {list.length} employee{list.length !== 1 ? "s" : ""}. Data cross-referenced with Bureau (credit score), salary, experience, age, tenure, grade &amp; department.</p>
+
+                            {/* Corporate Potential */}
+                            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-sm border-l-4 border-l-dashboard-primary">
+                                <h3 className="text-base font-semibold text-[#111827] mb-1 flex items-center gap-2">
+                                    <Package className="w-5 h-5 text-dashboard-primary" /> Corporate Potential
+                                </h3>
+                                <p className="text-xs text-[#6B7280] mb-4">Total loan potential from eligible employees. Distinction by underwriting policy (Bureau + salary, experience, age, credit score, tenure, grade, department).</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                                    <div className="bg-[#F9FAFB] rounded-lg p-4">
+                                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Employees</p>
+                                        <p className="text-2xl font-bold text-[#111827] mt-0.5">{list.length.toLocaleString()}</p>
+                                        <p className="text-xs text-[#6B7280] mt-0.5">Eligible pool</p>
+                                    </div>
+                                    <div className="bg-[#F9FAFB] rounded-lg p-4">
+                                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Total loan potential</p>
+                                        <p className="text-2xl font-bold text-dashboard-primary mt-0.5">₹{formatCr(totalLoanPotential)}</p>
+                                        <p className="text-xs text-[#6B7280] mt-0.5">Cross-ref. Bureau &amp; salary</p>
+                                    </div>
+                                    <div className="bg-[#F9FAFB] rounded-lg p-4">
+                                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Avg. potential / employee</p>
+                                        <p className="text-2xl font-bold text-[#111827] mt-0.5">₹{list.length ? formatCr(Math.round(totalLoanPotential / list.length)) : "0"}</p>
+                                        <p className="text-xs text-[#6B7280] mt-0.5">Underwriting-based</p>
+                                    </div>
+                                    <div className="bg-[#F9FAFB] rounded-lg p-4">
+                                        <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Prime segment</p>
+                                        <p className="text-2xl font-bold text-emerald-700 mt-0.5">{potentialPrime.length} ({list.length ? Math.round((potentialPrime.length / list.length) * 100) : 0}%)</p>
+                                        <p className="text-xs text-[#6B7280] mt-0.5">₹{formatCr(potentialPrime.reduce((s, x) => s + x.potential, 0))} potential</p>
+                                    </div>
+                                </div>
+                                <div className="border-t border-[#E5E7EB] pt-4">
+                                    <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-3">Potential by underwriting policy (Bureau + risk profile)</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50 border border-emerald-100">
+                                            <span className="text-sm font-medium text-emerald-800">Prime</span>
+                                            <span className="text-sm font-semibold text-emerald-900">{potentialPrime.length} · ₹{formatCr(potentialPrime.reduce((s, x) => s + x.potential, 0))}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-100">
+                                            <span className="text-sm font-medium text-amber-800">Standard</span>
+                                            <span className="text-sm font-semibold text-amber-900">{potentialStandard.length} · ₹{formatCr(potentialStandard.reduce((s, x) => s + x.potential, 0))}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-100 border border-slate-200">
+                                            <span className="text-sm font-medium text-slate-700">Sub-prime</span>
+                                            <span className="text-sm font-semibold text-slate-800">{potentialSubPrime.length} · ₹{formatCr(potentialSubPrime.reduce((s, x) => s + x.potential, 0))}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 text-[#6B7280] text-xs font-semibold uppercase tracking-wider"><TrendingUp className="w-4 h-4" /> Engagement score</div>
+                                    <p className="text-2xl font-bold text-[#111827] mt-1">{completionRate}%</p>
+                                    <p className="text-xs text-[#6B7280] mt-0.5">Journey completion rate</p>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 text-[#6B7280] text-xs font-semibold uppercase tracking-wider">Prime pool</div>
+                                    <p className="text-2xl font-bold text-[#111827] mt-1">{primeShare}%</p>
+                                    <p className="text-xs text-[#6B7280] mt-0.5">Credit score 750+</p>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 text-[#6B7280] text-xs font-semibold uppercase tracking-wider">Stable tenure</div>
+                                    <p className="text-2xl font-bold text-[#111827] mt-1">{stableShare}%</p>
+                                    <p className="text-xs text-[#6B7280] mt-0.5">Tenure 2+ years</p>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 text-[#6B7280] text-xs font-semibold uppercase tracking-wider">Avg. salary</div>
+                                    <p className="text-2xl font-bold text-[#111827] mt-1">₹{avgSalaryL}L</p>
+                                    <p className="text-xs text-[#6B7280] mt-0.5">Annual (eligible pool)</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+                                    <h3 className="text-sm font-semibold text-[#111827] mb-4">Age brackets (25–30 years &amp; above)</h3>
+                                    <div className="space-y-3">
+                                        {ageDistribution.map(({ label, count }) => {
+                                            const pct = list.length ? Math.round((count / list.length) * 100) : 0;
+                                            return (
+                                                <div key={label} className="flex items-center gap-3">
+                                                    <span className="text-sm font-medium text-[#374151] w-14">{label}</span>
+                                                    <div className="flex-1 h-6 bg-[#F3F4F6] rounded-full overflow-hidden">
+                                                        <div className="h-full bg-dashboard-primary rounded-full transition-all" style={{ width: `${Math.max(4, pct)}%` }} />
+                                                    </div>
+                                                    <span className="text-sm text-[#6B7280] w-16 text-right">{count} ({pct}%)</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+                                    <h3 className="text-sm font-semibold text-[#111827] mb-4">Credit score distribution</h3>
+                                    <div className="space-y-3">
+                                        {creditDistribution.map(({ label, count }) => {
+                                            const pct = list.length ? Math.round((count / list.length) * 100) : 0;
+                                            return (
+                                                <div key={label} className="flex items-center gap-3">
+                                                    <span className="text-sm font-medium text-[#374151] w-16">{label}</span>
+                                                    <div className="flex-1 h-6 bg-[#F3F4F6] rounded-full overflow-hidden">
+                                                        <div className="h-full bg-emerald-600 rounded-full transition-all" style={{ width: `${Math.max(4, pct)}%` }} />
+                                                    </div>
+                                                    <span className="text-sm text-[#6B7280] w-16 text-right">{count} ({pct}%)</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm overflow-hidden">
+                                    <h3 className="text-sm font-semibold text-[#111827] mb-4">Department-wise age split</h3>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-[#E5E7EB]">
+                                                    <th className="text-left py-2 font-semibold text-[#374151]">Department</th>
+                                                    {ageBrackets.map((b) => <th key={b.label} className="text-right py-2 font-semibold text-[#374151] w-12">{b.label}</th>)}
+                                                    <th className="text-right py-2 font-semibold text-[#374151]">Avg age</th>
+                                                    <th className="text-right py-2 font-semibold text-[#374151]">Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-[#E5E7EB]">
+                                                {deptAgeSplit.map((row) => (
+                                                    <tr key={row.dept}>
+                                                        <td className="py-2 text-[#111827]">{row.dept}</td>
+                                                        {row.byBracket.map((c, i) => <td key={i} className="text-right py-2 text-[#6B7280]">{c}</td>)}
+                                                        <td className="text-right py-2 font-medium text-[#111827]">{row.avgAge}</td>
+                                                        <td className="text-right py-2 font-medium text-[#111827]">{row.total}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+                                    <h3 className="text-sm font-semibold text-[#111827] mb-4">Salary-wise split</h3>
+                                    <div className="space-y-3">
+                                        {salarySplit.map(({ label, count }) => {
+                                            const pct = list.length ? Math.round((count / list.length) * 100) : 0;
+                                            return (
+                                                <div key={label} className="flex items-center gap-3">
+                                                    <span className="text-sm font-medium text-[#374151] min-w-[100px]">{label}</span>
+                                                    <div className="flex-1 h-6 bg-[#F3F4F6] rounded-full overflow-hidden">
+                                                        <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${Math.max(4, pct)}%` }} />
+                                                    </div>
+                                                    <span className="text-sm text-[#6B7280] w-16 text-right">{count} ({pct}%)</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+                                <h3 className="text-sm font-semibold text-[#111827] mb-3">Underwriting summary</h3>
+                                <ul className="text-sm text-[#6B7280] space-y-1 list-disc list-inside">
+                                    <li>Eligible pool: {list.length} employees · Total loan potential ₹{formatCr(totalLoanPotential)} (Bureau + salary, experience, age, tenure, grade, department)</li>
+                                    <li>Prime (750+): {primeShare}% — stronger repayment likelihood</li>
+                                    <li>Stable tenure (2+ yrs): {stableShare}% — lower attrition risk</li>
+                                    <li>Avg salary ₹{avgSalaryL}L — affordability for EMI bands</li>
+                                    <li>Completion rate {completionRate}% — engagement with existing journey</li>
+                                    <li>Risk profile: Prime {potentialPrime.length}, Standard {potentialStandard.length}, Sub-prime {potentialSubPrime.length} (underwriting policy)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    );
+                })() : (
                 <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
                     <div className="flex justify-between items-center px-5 py-4 border-b border-[#E5E7EB]">
                         <div className="flex items-center bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-3 h-10 w-80 focus-within:ring-2 focus-within:ring-dashboard-primary/20 focus-within:border-dashboard-primary transition-all">
@@ -704,6 +1098,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                         <div className="text-sm text-[#6B7280]">Page {currentPage} of {totalPages} <span className="ml-2 text-[#9CA3AF]">({currentList.length} employee{currentList.length !== 1 ? "s" : ""})</span></div>
                     </div>
                 </div>
+                )}
             </div>
         </>
     );
@@ -720,12 +1115,13 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
             const personalLoanNotStarted = totalEmployees - personalLoanCompleted - personalLoanInProgress - personalLoanInvited;
             const personalLoanUtilization = totalEmployees > 0 ? Math.round((personalLoanCompleted / totalEmployees) * 100) : 0;
 
+            // Lending-only product offerings (no Salary, Core banking, Finance Health)
             const productOfferings = [
+                { name: "Car Loan", category: "Loans", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
+                { name: "Business Loan", category: "Loans", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
+                { name: "Home Loan", category: "Loans", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
                 { name: "Personal Loan", category: "Loans", eligible: totalEmployees, applied: personalLoanInProgress + personalLoanInvited, completed: personalLoanCompleted, utilization: personalLoanUtilization },
-                { name: "Wealth Advisory", category: "Wealth", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
-                { name: "Super Credit Card", category: "Cards", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
-                { name: "Health", category: "Benefits", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
-                { name: "Debit Card", category: "Cards", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
+                { name: "LAP (Loan Against Property)", category: "Loans", eligible: totalEmployees, applied: 0, completed: 0, utilization: 0 },
             ];
 
             return (
@@ -733,7 +1129,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                     <div className="mb-8 rounded-2xl overflow-hidden shadow-lg" style={{ background: "linear-gradient(135deg, #C41E3A 0%, #9B1529 60%, #8B0000 100%)" }}>
                         <div className="px-8 py-8 md:py-10">
                             <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Mahindra Finance – Corporate Lending</h1>
-                            <p className="text-sm md:text-base text-white/90 mt-1 max-w-xl">Manage corporates and employee personal loan journeys.</p>
+                            <p className="text-sm md:text-base text-white/90 mt-1 max-w-xl">Manage corporates and lending products: Car Loan, Business Loan, Home Loan, Personal Loan, LAP.</p>
                         </div>
                     </div>
                     <div className="mb-8">
@@ -748,8 +1144,8 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                         </button>
                     </div>
                     <div className="mb-8">
-                        <h2 className="text-base font-bold text-[#111827] mb-5">Global analytics</h2>
-                        <p className="text-sm text-[#6B7280] mb-5">Aggregate metrics across all employees and product offerings.</p>
+                        <h2 className="text-base font-bold text-[#111827] mb-5">Lending overview</h2>
+                        <p className="text-sm text-[#6B7280] mb-5">Aggregate metrics across all employees and lending products only.</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                             <StatCard label="Total employees" value={totalEmployees} subtitle="Across all corporates" icon={<Users className="w-6 h-6" />} color="blue" />
                             <StatCard label="Personal loan – Completed" value={personalLoanCompleted} subtitle="Journey completed" icon={<CheckCircle2 className="w-6 h-6" />} color="green" />
@@ -758,7 +1154,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                             <StatCard label="Personal loan – Not started" value={personalLoanNotStarted} subtitle="Eligible, not invited" icon={<Users className="w-6 h-6" />} color="grey" />
                         </div>
                         <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm overflow-hidden">
-                            <h3 className="text-sm font-semibold text-[#111827] px-5 py-4 border-b border-[#E5E7EB]">Metrics by product offering</h3>
+                            <h3 className="text-sm font-semibold text-[#111827] px-5 py-4 border-b border-[#E5E7EB]">Metrics by lending product</h3>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm border-collapse min-w-[640px]">
                                     <thead className="bg-[#F9FAFB]">
@@ -888,11 +1284,13 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
     }
 
     if (activePage === "rm-products") {
+        // Lending-only products (no Salary, Core banking, Finance Health)
         const products = [
-            { name: "Mahindra Finance Wealth Advisory", desc: "Goal-based wealth advisory and investment services for employees", status: "Active" },
-            { name: "Personal Loan", desc: "Pre-approved loans for employees", status: "Active" },
-            { name: "Credit Card", desc: "Millennia & premium cards", status: "Active" },
-            { name: "Home Loan", desc: "Special rates for salaried", status: "Coming soon" },
+            { name: "Car Loan", desc: "Vehicle financing for employees", status: "Active" },
+            { name: "Business Loan", desc: "Business financing for eligible corporates", status: "Active" },
+            { name: "Home Loan", desc: "Special rates for salaried employees", status: "Active" },
+            { name: "Personal Loan", desc: "Pre-approved personal loans for employees", status: "Active" },
+            { name: "LAP (Loan Against Property)", desc: "Loan against property for employees", status: "Active" },
         ];
         return (
             <>
@@ -945,17 +1343,20 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
             if (selectedCorporate) {
             const corpMeta = corporatesTableData.find((c) => c.corporateName === selectedCorporate);
             const corpCategory = corpMeta?.corpCategory || "CAT A";
+            // Lending-only services for prospecting (no Salary, Core banking, Finance Health)
             const corpBenefitsBase = [
-                { name: "Mahindra Finance Personal Loan", category: "Loans", pct: 45, count: 562 },
-                { name: "Mahindra Finance Super Credit Card", category: "Cards", pct: 68, count: 847 },
-                { name: "Mahindra Finance Health", category: "Benefits", pct: 89, count: 1109 },
-                { name: "Mahindra Finance Wealth Advisory", category: "Wealth", pct: 34, count: 424 },
-                { name: "Mahindra Finance Debit Card", category: "Cards", pct: 52, count: 650 },
+                { name: "Car Loan", category: "Loans", pct: 42, count: 524 },
+                { name: "Business Loan", category: "Loans", pct: 38, count: 474 },
+                { name: "Home Loan", category: "Loans", pct: 55, count: 686 },
+                { name: "Personal Loan", category: "Loans", pct: 45, count: 562 },
+                { name: "LAP (Loan Against Property)", category: "Loans", pct: 32, count: 399 },
             ];
             const corpBenefits = corpBenefitsBase.map((b) => {
                 let enabled = true;
-                if (corpCategory === "CAT B" && b.name === "Mahindra Finance Wealth Advisory") enabled = false;
-                if (corpCategory === "CAT C" && b.category !== "Loans") enabled = false;
+                if (corpCategory === "CAT C") {
+                    // CAT C: restrict to Personal Loan and Home Loan only
+                    enabled = b.name === "Personal Loan" || b.name === "Home Loan";
+                }
                 return { ...b, enabled };
             });
             const corpKey = selectedCorporate;
@@ -1026,7 +1427,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                             : "border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB]"
                                     )}
                                 >
-                                    Services ({corpBenefits.length})
+                                    Lending services ({corpBenefits.length})
                                     <ChevronDown className={cn("w-4 h-4 transition-transform", corporateServicesDropdownOpen && "rotate-180")} />
                                 </button>
                                 {corporateServicesDropdownOpen && (
@@ -1034,8 +1435,8 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                         <div className="fixed inset-0 z-10" aria-hidden onClick={() => setCorporateServicesDropdownOpen(false)} />
                                         <div className="absolute right-0 top-full mt-1 z-20 w-[360px] max-h-[80vh] overflow-auto bg-white border border-[#E5E7EB] rounded-xl shadow-lg py-2">
                                             <div className="px-3 pb-2 border-b border-[#E5E7EB] mb-2">
-                                                <h3 className="text-sm font-semibold text-[#111827]">Services for this corporate</h3>
-                                                <p className="text-xs text-[#6B7280] mt-0.5">Enable or disable schemes by category.</p>
+                                                <h3 className="text-sm font-semibold text-[#111827]">Lending services for this corporate</h3>
+                                                <p className="text-xs text-[#6B7280] mt-0.5">Lending only. Enable or disable by category.</p>
                                             </div>
                                             <div className="space-y-0">
                                                 {corpBenefits.map((b, i) => (

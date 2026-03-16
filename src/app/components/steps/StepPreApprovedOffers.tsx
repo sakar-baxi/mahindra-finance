@@ -8,7 +8,6 @@ import {
   CreditCard,
   Gift,
   TrendingUp,
-  ShieldCheck,
   ArrowRight,
   Home,
   Zap,
@@ -28,12 +27,13 @@ export default function StepPreApprovedOffers() {
   const [offerSearch, setOfferSearch] = React.useState("");
   const [selectedOffer, setSelectedOffer] = React.useState<(typeof offers)[0] | null>(null);
 
+  // Lending only: no core banking (no credit card, insurance, demat)
   const offers = [
-    { id: "millennia", icon: CreditCard, title: "Millennia Credit Card", desc: "Pre-approved ₹2.5L limit", highlight: "5% cashback", gradient: "from-blue-500 to-indigo-600", applyLabel: "Apply for card" },
     { id: "personal-loan", icon: TrendingUp, title: "Personal Loan", desc: "Up to ₹15L instant disbursal", highlight: "From 10.5% p.a.", gradient: "from-violet-500 to-purple-600", applyLabel: "Apply for loan" },
     { id: "home-loan", icon: Home, title: "Home Loan", desc: "Refinancing from 8.45% p.a.", highlight: "Low EMI", gradient: "from-amber-500 to-orange-600", applyLabel: "Apply for home loan" },
-    { id: "insurance", icon: ShieldCheck, title: "Life Insurance", desc: "Cover up to ₹1 Crore", highlight: "Tax benefits", gradient: "from-emerald-500 to-teal-600", applyLabel: "Get coverage" },
-    { id: "demat", icon: Gift, title: "Demat Account", desc: "Zero AMC first year", highlight: "Free opening", gradient: "from-rose-500 to-pink-600", applyLabel: "Open Demat" },
+    { id: "car-loan", icon: Package, title: "Car Loan", desc: "Vehicle financing at competitive rates", highlight: "Flexible tenure", gradient: "from-blue-500 to-indigo-600", applyLabel: "Apply for car loan" },
+    { id: "business-loan", icon: Zap, title: "Business Loan", desc: "Business financing for eligible applicants", highlight: "Quick disbursal", gradient: "from-emerald-500 to-teal-600", applyLabel: "Apply for business loan" },
+    { id: "lap", icon: Gift, title: "LAP (Loan Against Property)", desc: "Loan against property for your needs", highlight: "High value", gradient: "from-rose-500 to-pink-600", applyLabel: "Apply for LAP" },
   ];
 
   const filteredOffers = offerSearch.trim()
@@ -120,7 +120,7 @@ export default function StepPreApprovedOffers() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-slate-800">Welcome kit</p>
-                <p className="text-xs text-slate-500 mt-0.5">Debit card & chequebook arriving in 4–5 days. Track via SMS or app.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Track your applications via SMS or app.</p>
               </div>
             </div>
 
@@ -138,7 +138,7 @@ export default function StepPreApprovedOffers() {
                 <p className="text-xs text-slate-600 mt-2">Apply for other services—type to search offers, then tap to apply.</p>
                 <input
                   type="text"
-                  placeholder="Type: personal loan, credit card, home loan..."
+                  placeholder="Type: personal loan, home loan, car loan..."
                   value={offerSearch}
                   onChange={(e) => setOfferSearch(e.target.value)}
                   className="mt-3 w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-500"
@@ -148,7 +148,7 @@ export default function StepPreApprovedOffers() {
               <div className="p-4 md:p-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredOffers.length === 0 ? (
-                    <p className="col-span-full text-sm text-slate-500 py-4">No offers match &quot;{offerSearch}&quot;. Try &quot;personal loan&quot; or &quot;credit card&quot;.</p>
+                    <p className="col-span-full text-sm text-slate-500 py-4">No offers match &quot;{offerSearch}&quot;. Try &quot;personal loan&quot; or &quot;home loan&quot;.</p>
                   ) : (
                     filteredOffers.map((offer, i) => (
                       <div

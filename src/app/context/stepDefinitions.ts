@@ -44,6 +44,15 @@ import StepPersonalLoanCategory from "@/app/components/steps/StepPersonalLoanCat
 import StepPersonalLoanContactEmployment from "@/app/components/steps/StepPersonalLoanContactEmployment";
 import StepPersonalLoanPersonalDetails from "@/app/components/steps/StepPersonalLoanPersonalDetails";
 import StepPersonalLoanComplete from "@/app/components/steps/StepPersonalLoanComplete";
+import StepPLVerifyIdentity from "@/app/components/steps/StepPLVerifyIdentity";
+import StepPLOtpVerify from "@/app/components/steps/StepPLOtpVerify";
+import StepPLEkycAadhaar from "@/app/components/steps/StepPLEkycAadhaar";
+import StepPLEkycAadhaarOtp from "@/app/components/steps/StepPLEkycAadhaarOtp";
+import StepPLPersonalDetailsForm from "@/app/components/steps/StepPLPersonalDetailsForm";
+import StepPLAddressIncomeRegulatory from "@/app/components/steps/StepPLAddressIncomeRegulatory";
+import StepPLReviewApplication from "@/app/components/steps/StepPLReviewApplication";
+import StepPLDocumentCollection from "@/app/components/steps/StepPLDocumentCollection";
+import StepPLBureauResponse from "@/app/components/steps/StepPLBureauResponse";
 
 export type UserType = "ntb" | "etb-nk" | "etb";
 export type JourneyType = "ntb" | "ntb-conversion" | "etb-nk" | "etb" | "conversational" | "personal-loan";
@@ -60,6 +69,14 @@ const BASE_STEP_TITLES: Record<string, string> = {
   selectCategory: "Select Category",
   contactEmployment: "Contact & Employment",
   personalDetails: "Personal Details",
+  verifyIdentity: "Verify Identity",
+  otpVerify: "Verify OTP",
+  ekycAadhaar: "Aadhaar e-KYC",
+  ekycAadhaarOtp: "Aadhaar OTP",
+  addressIncomeRegulatory: "Address & Declarations",
+  reviewApplication: "Review Application",
+  documentCollection: "Document Collection",
+  bureauResponse: "Bureau & Underwriting",
   welcome: "Verification",
   kycChoice: "Select KYC",
   ekycHandler: "e-KYC Verification",
@@ -73,7 +90,6 @@ const BASE_STEP_TITLES: Record<string, string> = {
   nomineeDetails: "Nominee Details",
   accountOpened: "Account Opened",
   preApprovedOffers: "Pre-approved Offers",
-  reviewApplication: "Final Verification",
   kycDetails: "VKYC Consent",
   videoKyc: "Video KYC",
   accountConversion: "Verify Details",
@@ -133,9 +149,15 @@ export const ALL_STEPS: Record<string, Step> = {
     "complete",
   ]),
   ...addJourneySteps("personal-loan", [
-    "selectCategory",
-    "contactEmployment",
+    "verifyIdentity",
+    "otpVerify",
+    "ekycAadhaar",
+    "ekycAadhaarOtp",
     "personalDetails",
+    "addressIncomeRegulatory",
+    "reviewApplication",
+    "documentCollection",
+    "bureauResponse",
     "complete",
   ]),
   journeyModeSelection: { id: "journeyModeSelection", title: "Choose Experience" },
@@ -205,6 +227,14 @@ export const STEP_COMPONENTS: Record<string, React.ComponentType> = {
 
   [makeJourneyStepId("personal-loan", "selectCategory")]: StepPersonalLoanCategory,
   [makeJourneyStepId("personal-loan", "contactEmployment")]: StepPersonalLoanContactEmployment,
-  [makeJourneyStepId("personal-loan", "personalDetails")]: StepPersonalLoanPersonalDetails,
+  [makeJourneyStepId("personal-loan", "verifyIdentity")]: StepPLVerifyIdentity,
+  [makeJourneyStepId("personal-loan", "otpVerify")]: StepPLOtpVerify,
+  [makeJourneyStepId("personal-loan", "ekycAadhaar")]: StepPLEkycAadhaar,
+  [makeJourneyStepId("personal-loan", "ekycAadhaarOtp")]: StepPLEkycAadhaarOtp,
+  [makeJourneyStepId("personal-loan", "personalDetails")]: StepPLPersonalDetailsForm,
+  [makeJourneyStepId("personal-loan", "addressIncomeRegulatory")]: StepPLAddressIncomeRegulatory,
+  [makeJourneyStepId("personal-loan", "reviewApplication")]: StepPLReviewApplication,
+  [makeJourneyStepId("personal-loan", "documentCollection")]: StepPLDocumentCollection,
+  [makeJourneyStepId("personal-loan", "bureauResponse")]: StepPLBureauResponse,
   [makeJourneyStepId("personal-loan", "complete")]: StepPersonalLoanComplete,
 };
