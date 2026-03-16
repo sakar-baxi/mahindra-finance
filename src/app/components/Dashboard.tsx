@@ -42,6 +42,7 @@ import {
     ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getCurrentEmployeeIdFromJourney, setNudge as setNudgeStorage } from "@/lib/hrmsSync";
 import { DashboardPageContent } from "@/app/components/DashboardPageContent";
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -106,6 +107,34 @@ interface JourneyStatus {
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
+/** Derive bank name from IFSC when bank name is missing (e.g. from HRMS). */
+function getBankNameFromIfsc(ifsc: string | undefined | null): string | null {
+    if (!ifsc || typeof ifsc !== "string") return null;
+    const prefix = (ifsc.slice(0, 4) || "").toUpperCase();
+    const map: Record<string, string> = {
+        IDFB: "IDFC FIRST Bank",
+        HDFC: "HDFC Bank",
+        SBIN: "State Bank of India",
+        ICIC: "ICICI Bank",
+        UTIB: "Axis Bank",
+        KKBK: "Kotak Mahindra Bank",
+        PUNB: "Punjab National Bank",
+        BARB: "Bank of Baroda",
+        CNRB: "Canara Bank",
+        INDB: "IndusInd Bank",
+        YESB: "Yes Bank",
+    };
+    return map[prefix] ?? null;
+}
+
+/** Mask account number for display: XXXXXXXX1234 */
+function maskAccountNumber(account: string | undefined | null): string {
+    if (!account || typeof account !== "string") return "NOT AVAILABLE";
+    const s = String(account).replace(/\D/g, "");
+    if (s.length < 4) return "XXXX";
+    return "XXXXXXXX" + s.slice(-4);
+}
+
 function getJourneyCategory(journey: string): {
     label: "NTB" | "ETB: Auto Conv." | "ETB with KYC" | "NTB - Alternate";
     className: string;
@@ -153,6 +182,7 @@ const ITEMS_PER_PAGE = 10;
 const CONNECTIONS_PER_PAGE = 10;
 
 import { getSeedEmployees, SEED_CORPORATES } from "@/lib/seedEmployees";
+import { runSync, getSyncTimestamp } from "@/lib/hrmsSync";
 
 // Max 3 corporates for seed data; new corporates added via onboarding get different employee records
 const CORPORATES = SEED_CORPORATES;
@@ -295,6 +325,7 @@ type TabKey = "directory" | "accountOpened" | "analytics";
 type PageKey = "dashboard" | "connections" | "reporting" | "corporates" | "integrations" | "data-models" | "webhooks" | "diagnostics" | "rm-employees" | "rm-products" | "rm-analytics" | "hr-overview" | "hr-employees";
 
 const ONBOARDED_CORPORATES_KEY = "hdfc_onboarded_corporates";
+const PORTAL_EMPLOYEE_ID_KEY = "mmfsl_portal_employee_id";
 // All corporate employees are always synced to RM dashboard (no HR manual share required)
 const HR_OWN_CORPORATE = "Chola Business Services"; // HR Portal sees only this corporate
 
@@ -320,6 +351,20 @@ export default function Dashboard() {
     const [searchQuery, setSearchQuery] = React.useState("");
     const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
     const [employeeStatuses, setEmployeeStatuses] = React.useState<Record<string, JourneyStatus>>({});
+    const [lastHrSyncAt, setLastHrSyncAt] = React.useState<string | null>(() => (typeof window !== "undefined" ? getSyncTimestamp() : null));
+    const [nudgeFeedback, setNudgeFeedback] = React.useState<string | null>(null);
+    const [selectedPortalEmployeeId, setSelectedPortalEmployeeId] = React.useState<string | null>(() => {
+        if (typeof window === "undefined") return null;
+        try {
+            const saved = localStorage.getItem(PORTAL_EMPLOYEE_ID_KEY);
+            if (saved) return saved;
+            const fromJourney = getCurrentEmployeeIdFromJourney();
+            if (fromJourney) return fromJourney;
+            return employees[0]?.id ?? null;
+        } catch {
+            return employees[0]?.id ?? null;
+        }
+    });
     // Read all employee journey statuses from localStorage
     const refreshStatuses = React.useCallback(() => {
         const statuses: Record<string, JourneyStatus> = {};
@@ -333,6 +378,13 @@ export default function Dashboard() {
         });
         setEmployeeStatuses(statuses);
     }, []);
+
+    const handleHrSyncNow = React.useCallback(() => {
+        const list = portalMode === "hr" ? employees.filter((e) => (e.companyName || "Chola Business Services") === HR_OWN_CORPORATE) : employees;
+        const { syncedAt } = runSync(list, employeeStatuses);
+        setLastHrSyncAt(syncedAt);
+        refreshStatuses();
+    }, [employeeStatuses, portalMode, refreshStatuses]);
 
     // Listen for cross-tab localStorage changes
     React.useEffect(() => {
@@ -404,24 +456,12 @@ export default function Dashboard() {
         currentPage * ITEMS_PER_PAGE
     );
 
-    const handleInvite = (emp: Employee) => {
-        if (invitedEmployeeIds[emp.id]) return;
-        // Personal loan journey for Mahindra Finance (prefilled from employee/dashboard data)
-        const journeyType = "personal-loan";
-        setInvitedEmployeeIds((prev) => ({ ...prev, [emp.id]: true }));
-        try {
-            const keysToRemove: string[] = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key?.startsWith("hdfcJourney_")) keysToRemove.push(key);
-            }
-            keysToRemove.forEach((k) => localStorage.removeItem(k));
-        } catch { /* ignore */ }
+    const buildPrefilledInvite = (emp: Employee) => {
         const nameParts = (emp.name || "").trim().split(/\s+/);
         const firstName = nameParts[0] || "";
         const lastName = nameParts.slice(1).join(" ") || "";
-        localStorage.setItem("pendingInvite", JSON.stringify({
-            journeyType,
+        return {
+            journeyType: "personal-loan" as const,
             employee: { id: emp.id, name: emp.name, email: emp.email, phone: emp.phone },
             prefilledData: {
                 employeeId: emp.id,
@@ -447,8 +487,59 @@ export default function Dashboard() {
                 bankIfscCode: emp.bankIfscCode,
                 bankBranch: emp.bankBranch,
             },
-        }));
+        };
+    };
+
+    const handleInvite = (emp: Employee) => {
+        if (invitedEmployeeIds[emp.id]) return;
+        setInvitedEmployeeIds((prev) => ({ ...prev, [emp.id]: true }));
+        try {
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key?.startsWith("hdfcJourney_")) keysToRemove.push(key);
+            }
+            keysToRemove.forEach((k) => localStorage.removeItem(k));
+        } catch { /* ignore */ }
+        const invite = buildPrefilledInvite(emp);
+        localStorage.setItem("pendingInvite", JSON.stringify(invite));
         window.open("/", "_blank");
+    };
+
+    /** Retrigger journey from where employee left off (FTNR case management). */
+    const handleRetriggerJourney = (emp: Employee) => {
+        const status = employeeStatuses[emp.id] as (JourneyStatus & { currentStepId?: string }) | undefined;
+        const startStepId = status?.status === "in_progress" ? status.currentStepId : undefined;
+        try {
+            const invite = { ...buildPrefilledInvite(emp), startStepId };
+            localStorage.setItem("pendingInvite", JSON.stringify(invite));
+            window.open("/journey/resume", "_blank");
+        } catch { /* ignore */ }
+    };
+
+    /** Resume journey from employee portal (e.g. after nudge). Uses nudge startStepId if provided. */
+    const handleResumeFromNudge = (emp: { id: string; name?: string; email?: string; phone?: string }, startStepId?: string | null) => {
+        const fullEmp = employees.find((e) => e.id === emp.id);
+        if (!fullEmp) return;
+        try {
+            const status = employeeStatuses[fullEmp.id] as (JourneyStatus & { currentStepId?: string }) | undefined;
+            const stepId = startStepId ?? (status?.status === "in_progress" ? status.currentStepId : undefined);
+            const invite = { ...buildPrefilledInvite(fullEmp), startStepId: stepId };
+            localStorage.setItem("pendingInvite", JSON.stringify(invite));
+            window.open("/journey/resume", "_blank");
+        } catch { /* ignore */ }
+    };
+
+    /** Nudge employee to complete journey (FTNR – reminder). Employee sees notification in portal to resume + update documents. */
+    const handleNudge = (emp: Employee) => {
+        const status = employeeStatuses[emp.id] as (JourneyStatus & { currentStepId?: string }) | undefined;
+        setNudgeStorage(emp.id, {
+            nudgedAt: new Date().toISOString(),
+            startStepId: status?.status === "in_progress" ? status.currentStepId : undefined,
+            message: "Your RM has asked you to complete your application and submit any pending documents.",
+        });
+        setNudgeFeedback(`${emp.name} – reminder sent`);
+        setTimeout(() => setNudgeFeedback(null), 3000);
     };
 
     const goToPage = (p: PageKey) => {
@@ -583,6 +674,30 @@ export default function Dashboard() {
                         </div>
                         <span className="text-sm font-medium text-[#374151]">Notifications</span>
                     </button>
+                    {portalMode === "employee" ? (
+                        <div className="space-y-1">
+                            <label className="text-[11px] text-[#6B7280] block">Login as employee</label>
+                            <select
+                                value={selectedPortalEmployeeId ?? ""}
+                                onChange={(e) => {
+                                    const id = e.target.value || null;
+                                    setSelectedPortalEmployeeId(id);
+                                    try {
+                                        if (id) localStorage.setItem(PORTAL_EMPLOYEE_ID_KEY, id);
+                                        else localStorage.removeItem(PORTAL_EMPLOYEE_ID_KEY);
+                                    } catch { /* ignore */ }
+                                }}
+                                className="w-full text-sm font-medium text-[#111827] bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-dashboard-primary/20"
+                            >
+                                <option value="">Select employee</option>
+                                {employees.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                        {emp.name} ({emp.id})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
                     <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F9FAFB]">
                         <div className="w-9 h-9 rounded-full bg-dashboard-primary flex items-center justify-center text-white text-xs font-bold">GS</div>
                         <div className="min-w-0 flex-1">
@@ -591,6 +706,7 @@ export default function Dashboard() {
                         </div>
                         <ChevronDown className="w-4 h-4 text-[#9CA3AF] shrink-0" />
                     </div>
+                    )}
                     <a href="#" className="flex items-center gap-2 px-3 py-2 text-sm text-[#6B7280] hover:text-[#111827] transition-colors">
                         <ExternalLink className="w-4 h-4" />
                         Documentation
@@ -627,7 +743,13 @@ export default function Dashboard() {
 
                 <div className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden px-8 py-8 bg-[#FAFBFC]">
                     {portalMode === "employee" ? (
-                        <EmployeePortalContent activePage={empActivePage} onNavigate={setEmpActivePage} />
+                        <EmployeePortalContent
+                        activePage={empActivePage}
+                        onNavigate={setEmpActivePage}
+                        currentEmployeeId={selectedPortalEmployeeId}
+                        currentEmployee={selectedPortalEmployeeId ? employees.find((e) => e.id === selectedPortalEmployeeId) ?? null : null}
+                        onResumeFromNudge={handleResumeFromNudge}
+                    />
                     ) : showCorporateOnboarding ? (
                         <CorporateOnboarding
                             onComplete={handleCorporateOnboardingComplete}
@@ -668,6 +790,11 @@ export default function Dashboard() {
                             portalMode={portalMode}
                             onAddNewCorporate={handleAddNewCorporate}
                             onNavigate={goToPage}
+                            onHrSyncNow={handleHrSyncNow}
+                            lastHrSyncAt={lastHrSyncAt}
+                            onRetriggerJourney={handleRetriggerJourney}
+                            onNudge={handleNudge}
+                            nudgeFeedback={nudgeFeedback}
                         />
                     )}
                 </div>
@@ -767,16 +894,23 @@ function HREmployeeDetail({ employee, journeyStatus, onBack }: { employee: Emplo
                     </div>
                 </div>
             )}
-            {journeyStatus?.status === "completed" && (journeyStatus.bankName || journeyStatus.accountNumber || journeyStatus.ifscCode) && (
-                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
-                    <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-4">Bank Details</h2>
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between"><span className="text-[#6B7280]">Bank Name</span><span className="text-[#111827]">{journeyStatus.bankName || "—"}</span></div>
-                        <div className="flex justify-between"><span className="text-[#6B7280]">Account Number</span><span className="text-[#111827] font-mono">{journeyStatus.accountNumber || "—"}</span></div>
-                        <div className="flex justify-between"><span className="text-[#6B7280]">IFSC Code</span><span className="text-[#111827] font-mono">{journeyStatus.ifscCode || "—"}</span></div>
+            {(() => {
+                const empIfsc = journeyStatus?.status === "completed" ? journeyStatus.ifscCode : employee.bankIfscCode;
+                const empBankName = (journeyStatus?.status === "completed" ? journeyStatus.bankName : undefined) || employee.bankName || getBankNameFromIfsc(empIfsc);
+                const empAccount = journeyStatus?.status === "completed" ? journeyStatus.accountNumber : employee.bankAccountNumber;
+                const showBank = empBankName || empAccount || empIfsc;
+                if (!showBank) return null;
+                return (
+                    <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+                        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-4">Bank Details</h2>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between"><span className="text-[#6B7280]">Bank Name</span><span className={empBankName ? "text-[#111827]" : "text-[#9CA3AF]"}>{empBankName || "NOT AVAILABLE"}</span></div>
+                            <div className="flex justify-between"><span className="text-[#6B7280]">Account Number</span><span className="text-[#111827] font-mono">{empAccount ? maskAccountNumber(empAccount) : "NOT AVAILABLE"}</span></div>
+                            <div className="flex justify-between"><span className="text-[#6B7280]">IFSC Code</span><span className="text-[#111827] font-mono">{empIfsc || "NOT AVAILABLE"}</span></div>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
             <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-4">Emergency Details</h2>
                 <div className="space-y-2 text-sm">
@@ -803,10 +937,17 @@ function EmployeeProfile({
     const na = "NOT AVAILABLE";
     const val = (v: string | undefined | null) => (v && String(v).trim() ? String(v) : na);
 
-    // Bank details: only available after journey completion
-    const bankName = journeyStatus?.status === "completed" ? (journeyStatus.bankName || na) : na;
-    const accountNumber = journeyStatus?.status === "completed" ? (journeyStatus.accountNumber || na) : na;
-    const ifscCode = journeyStatus?.status === "completed" ? (journeyStatus.ifscCode || na) : na;
+    // Bank details: prefer employee (HRMS) data, then journey; derive bank name from IFSC if missing
+    const rawBankName = journeyStatus?.status === "completed" ? journeyStatus.bankName : undefined;
+    const rawAccount = journeyStatus?.status === "completed" ? journeyStatus.accountNumber : undefined;
+    const rawIfsc = journeyStatus?.status === "completed" ? journeyStatus.ifscCode : undefined;
+    const bankName = val(
+        rawBankName || employee.bankName || getBankNameFromIfsc(rawIfsc || employee.bankIfscCode)
+    );
+    const accountNumber = (rawAccount || employee.bankAccountNumber)
+        ? maskAccountNumber(rawAccount || employee.bankAccountNumber)
+        : na;
+    const ifscCode = val(rawIfsc || employee.bankIfscCode);
 
     // Merge journey updates over static employee data (with defensive fallbacks)
     const name = journeyStatus?.name || employee.name || "Employee";
