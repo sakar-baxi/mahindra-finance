@@ -4,7 +4,7 @@ import React from "react";
 import { useJourney } from "@/app/context/JourneyContext";
 import { CreditCard, PiggyBank, ChevronRight, Wallet, Car, Home, TrendingUp, Bell, FileText, X } from "lucide-react";
 import ProductMarketplaceDashboard, { openPersonalLoanJourneyInNewTab } from "@/app/components/shared/ProductMarketplaceDashboard";
-import { getCurrentEmployeeIdFromJourney, getBreOffersForEmployee, getNudge, clearNudge, type EmployeeOfferProfile, type NudgePayload } from "@/lib/hrmsSync";
+import { getCurrentEmployeeIdFromJourney, getBreOffersForEmployee, getNudge, clearNudge, getEmployeeOfferNotification, clearEmployeeOfferNotification, type EmployeeOfferProfile, type NudgePayload } from "@/lib/hrmsSync";
 
 type EmpPageKey = "dashboard" | "finagent" | "orders";
 
@@ -25,8 +25,12 @@ export default function EmployeePortalContent({ activePage, onNavigate, currentE
 
     const employeeIdForDashboard = currentEmployeeId ?? getCurrentEmployeeIdFromJourney();
     const [nudge, setNudge] = React.useState<NudgePayload | null>(() => (employeeIdForDashboard ? getNudge(employeeIdForDashboard) : null));
+    const [offerNotification, setOfferNotification] = React.useState<{ message: string; at: string } | null>(() => (employeeIdForDashboard ? getEmployeeOfferNotification(employeeIdForDashboard) : null));
     React.useEffect(() => {
         setNudge(employeeIdForDashboard ? getNudge(employeeIdForDashboard) : null);
+    }, [employeeIdForDashboard]);
+    React.useEffect(() => {
+        setOfferNotification(employeeIdForDashboard ? getEmployeeOfferNotification(employeeIdForDashboard) : null);
     }, [employeeIdForDashboard]);
 
     // Mock application status from localStorage
@@ -49,6 +53,33 @@ export default function EmployeePortalContent({ activePage, onNavigate, currentE
 
         return (
             <div className="space-y-6">
+                {offerNotification && employeeId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => { clearEmployeeOfferNotification(employeeId); setOfferNotification(null); }}>
+                        <div className="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                            <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-[#111827]">Offers updated</h3>
+                                <button type="button" onClick={() => { clearEmployeeOfferNotification(employeeId); setOfferNotification(null); }} className="p-1 rounded-lg text-[#6B7280] hover:bg-[#F3F4F6]"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="px-6 py-4 space-y-3">
+                                <p className="text-sm text-[#6B7280]">{offerNotification.message}</p>
+                                {breOffers && (breOffers.topUpEligible || breOffers.carLoanEligible || breOffers.homeLoanEligible) && (
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                        {breOffers.topUpEligible && breOffers.topUpAmount && (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-emerald-100 text-emerald-800">Top-up up to ₹{(breOffers.topUpAmount / 100000).toFixed(1)}L</span>
+                                        )}
+                                        {breOffers.carLoanEligible && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-blue-100 text-blue-800">Car Loan</span>}
+                                        {breOffers.homeLoanEligible && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-violet-100 text-violet-800">Home Loan</span>}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="px-6 py-4 border-t border-[#E5E7EB] flex justify-end">
+                                <button type="button" onClick={() => { clearEmployeeOfferNotification(employeeId); setOfferNotification(null); }} className="h-10 px-4 rounded-lg text-sm font-semibold text-white bg-dashboard-primary hover:opacity-90">
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {nudge && currentEmployee && onResumeFromNudge && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
                         <div className="flex items-start gap-3">

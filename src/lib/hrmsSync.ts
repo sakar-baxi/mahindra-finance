@@ -98,7 +98,8 @@ export type EmployeeOfferProfile = {
 export function computeBreOffersFromProfile(profile: EmployeeOfferProfile): BreOffer {
   const salary = Math.max(0, parseInt(String(profile.income || "0").replace(/\D/g, ""), 10) || 600000);
   const gradeLevel = parseInt(String(profile.grade || "0").replace(/\D/g, ""), 10) || 3;
-  const isActive = (profile.employmentStatus || "Active").toLowerCase() !== "terminated" && (profile.employmentStatus || "Active").toLowerCase() !== "inactive";
+  const status = (profile.employmentStatus || "Active").toLowerCase();
+  const isActive = status !== "terminated" && status !== "inactive" && status !== "resigned";
   const topUpEligible = isActive && salary >= 800000;
   const topUpAmount = topUpEligible ? Math.min(800000, Math.round(salary * (0.15 + gradeLevel * 0.02))) : undefined;
   const carLoanEligible = isActive && salary >= 600000;
@@ -160,6 +161,104 @@ export function clearNudge(employeeId: string): void {
   }
 }
 
+/** Pending HRMS updates for RM to review (e.g. after sync: income/grade change, new offers). */
+const PENDING_UPDATES_KEY = "mmfsl_rm_pending_updates";
+export interface PendingHrmsUpdate {
+  employeeId: string;
+  employeeName?: string;
+  changes: string[];
+  profileBefore: Partial<SyncedEmployeeData> | null;
+  profileAfter: SyncedEmployeeData;
+  offersAfter: BreOffer;
+  syncedAt: string;
+}
+
+export function getPendingUpdates(employeeId: string): PendingHrmsUpdate | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(PENDING_UPDATES_KEY);
+    const all: Record<string, PendingHrmsUpdate> = raw ? JSON.parse(raw) : {};
+    return all[employeeId] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function getAllPendingUpdateEmployeeIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(PENDING_UPDATES_KEY);
+    const all: Record<string, PendingHrmsUpdate> = raw ? JSON.parse(raw) : {};
+    return Object.keys(all);
+  } catch {
+    return [];
+  }
+}
+
+export function setPendingUpdates(employeeId: string, data: PendingHrmsUpdate): void {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(PENDING_UPDATES_KEY);
+    const all: Record<string, PendingHrmsUpdate> = raw ? JSON.parse(raw) : {};
+    all[employeeId] = data;
+    localStorage.setItem(PENDING_UPDATES_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearPendingUpdates(employeeId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(PENDING_UPDATES_KEY);
+    const all: Record<string, PendingHrmsUpdate> = raw ? JSON.parse(raw) : {};
+    delete all[employeeId];
+    localStorage.setItem(PENDING_UPDATES_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Notification to employee that offers have been updated (RM clicked "Trigger offers"). */
+const OFFER_NOTIFICATION_KEY_PREFIX = "mmfsl_employee_offer_notification_";
+export interface EmployeeOfferNotification {
+  at: string;
+  message: string;
+}
+
+export function setEmployeeOfferNotification(employeeId: string, payload?: Partial<EmployeeOfferNotification>): void {
+  if (typeof window === "undefined") return;
+  try {
+    const data: EmployeeOfferNotification = {
+      at: new Date().toISOString(),
+      message: "Your offers have been updated based on your latest profile. Check your dashboard.",
+      ...payload,
+    };
+    localStorage.setItem(OFFER_NOTIFICATION_KEY_PREFIX + employeeId, JSON.stringify(data));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getEmployeeOfferNotification(employeeId: string): EmployeeOfferNotification | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(OFFER_NOTIFICATION_KEY_PREFIX + employeeId);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearEmployeeOfferNotification(employeeId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(OFFER_NOTIFICATION_KEY_PREFIX + employeeId);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Get current employee id for employee portal (most recent completed journey). */
 export function getCurrentEmployeeIdFromJourney(): string | null {
   if (typeof window === "undefined") return null;
@@ -192,8 +291,9 @@ function hash(s: string): number {
 }
 
 /**
- * Run HRMS sync: update salary/band/designation for all employees;
- * for employees who have taken a loan, generate triggers and apply BRE rules (feedback from MMFSL LMS).
+ * Run HRMS sync: generate random new values for all employees.
+ * - Employee #1 (index 0): forced to Resigned → MMFSL profile/offers reflect resigned state.
+ * - Employee #2 (index 1): increased income band + promoted → pending update stored for RM "Updates" popup.
  */
 export function runSync(
   employees: EmployeeLike[],
@@ -204,19 +304,33 @@ export function runSync(
   const triggers: Record<string, TriggerEvent[]> = {};
   const offers: Record<string, BreOffer> = {};
 
-  employees.forEach((emp) => {
+  const previousSynced = typeof window !== "undefined" ? getSyncedEmployees() : {};
+
+  employees.forEach((emp, index) => {
     const h = hash(emp.id + syncedAt.slice(0, 10));
     const baseIncome = parseInt(emp.income || "1200000", 10);
     const salaryBands = ["Band A", "Band B", "Band C", "Band D", "Band E"];
-    const band = salaryBands[h % salaryBands.length];
+    let band = salaryBands[h % salaryBands.length];
     const salaryDelta = (h % 15) - 5;
-    const newSalary = Math.max(600000, Math.min(4000000, baseIncome + salaryDelta * 50000));
+    let newSalary = Math.max(600000, Math.min(4000000, baseIncome + salaryDelta * 50000));
     const designations = ["Senior Associate", "Associate", "Manager", "Senior Manager", "Lead", "Specialist"];
-    const newDesignation = designations[h % designations.length];
+    let newDesignation = designations[h % designations.length];
     const depts = ["Technology", "Finance", "Operations", "Marketing", "Human Resources", "Sales"];
-    const newDept = depts[h % depts.length];
+    let newDept = depts[h % depts.length];
     const statuses = ["Active", "Active", "Active", "On Notice", "Terminated"];
-    const newStatus = statuses[h % statuses.length];
+    let newStatus = statuses[h % statuses.length];
+
+    // Employee #1: force Resigned so MMFSL profile changes (no active offers)
+    if (index === 0) {
+      newStatus = "Resigned";
+    }
+    // Employee #2: increase income band + promote (for RM "Updates" trigger)
+    if (index === 1) {
+      band = "Band A";
+      newSalary = Math.max(1800000, Math.min(3500000, baseIncome * 2 + (h % 5) * 100000));
+      newDesignation = "Senior Manager";
+      newStatus = "Active";
+    }
 
     synced[emp.id] = {
       employeeId: emp.id,
@@ -229,36 +343,20 @@ export function runSync(
     };
 
     const status = employeeStatuses[emp.id]?.status;
+    const active = newStatus === "Active";
+    const gradeNum = band === "Band A" ? 1 : band === "Band B" ? 2 : band === "Band C" ? 3 : band === "Band D" ? 4 : 5;
+
     if (status === "completed") {
       const empTriggers: TriggerEvent[] = [];
-      if (salaryDelta > 0) {
+      if (newStatus === "Resigned") {
         empTriggers.push({
-          type: "INCOME_CHANGE",
-          label: "Salary updated",
-          description: `Income revised (BRE applied for loan terms).`,
+          type: "NACH_RESIGNATION",
+          label: "NACH – Resignation",
+          description: "Employee resigned; NACH and loan rules applied per BRE.",
           date: syncedAt,
           source: "MMFSL LMS",
         });
-      }
-      if (newDesignation !== (emp.designation || "")) {
-        empTriggers.push({
-          type: "DESIGNATION_CHANGE",
-          label: "Designation changed",
-          description: `Function/designation update reflected.`,
-          date: syncedAt,
-          source: "MMFSL LMS",
-        });
-      }
-      if (newDept !== (emp.department || "")) {
-        empTriggers.push({
-          type: "FUNCTION_CHANGE",
-          label: "Function/Department change",
-          description: `Department updated in HRMS.`,
-          date: syncedAt,
-          source: "MMFSL LMS",
-        });
-      }
-      if (newStatus === "On Notice") {
+      } else if (newStatus === "On Notice") {
         empTriggers.push({
           type: "NACH_RESIGNATION",
           label: "NACH – Resignation",
@@ -276,31 +374,46 @@ export function runSync(
         });
       }
       if (empTriggers.length > 0) triggers[emp.id] = empTriggers;
+    }
 
-      const topUpEligible = salaryDelta > 0 && newStatus === "Active";
-      const topUpAmount = topUpEligible ? Math.min(500000, Math.round(newSalary * 0.25)) : undefined;
+    if (active) {
+      const topUpEligible = newSalary >= 800000;
+      const topUpAmount = topUpEligible ? Math.min(800000, Math.round(newSalary * (0.1 + gradeNum * 0.02))) : undefined;
       offers[emp.id] = {
         topUpEligible: !!topUpEligible,
         topUpAmount,
-        carLoanEligible: newStatus === "Active" && newSalary >= 800000,
-        homeLoanEligible: newStatus === "Active" && newSalary >= 1200000,
-        updatedTerms: salaryDelta > 0 ? "Updated loan terms available based on new income." : undefined,
+        carLoanEligible: newSalary >= 600000,
+        homeLoanEligible: newSalary >= 1200000 && gradeNum >= 2,
+        updatedTerms: topUpEligible ? "Eligibility based on your current salary and grade." : undefined,
         syncedAt,
       };
     } else {
-      // Offer data for all employees so portal shows different offers per salary/grade when data is updated
-      const gradeNum = band === "Band A" ? 1 : band === "Band B" ? 2 : band === "Band C" ? 3 : band === "Band D" ? 4 : 5;
-      const active = newStatus === "Active";
-      const topUpEligible = active && newSalary >= 800000;
-      const topUpAmount = topUpEligible ? Math.min(600000, Math.round(newSalary * (0.1 + gradeNum * 0.02))) : undefined;
       offers[emp.id] = {
-        topUpEligible: !!topUpEligible,
-        topUpAmount,
-        carLoanEligible: active && newSalary >= 600000,
-        homeLoanEligible: active && newSalary >= 1200000 && gradeNum >= 2,
-        updatedTerms: undefined,
+        topUpEligible: false,
+        carLoanEligible: false,
+        homeLoanEligible: false,
         syncedAt,
       };
+    }
+
+    // Store pending update for employee #2 so RM sees "Updates" and can trigger offers to employee
+    if (index === 1 && typeof window !== "undefined") {
+      const prev = previousSynced[emp.id] ?? null;
+      const changes: string[] = [];
+      if (!prev || prev.salary !== newSalary) changes.push(`Salary updated to ₹${(newSalary / 100000).toFixed(1)}L`);
+      if (!prev || prev.band !== band) changes.push(`Band: ${band}`);
+      if (!prev || prev.designation !== newDesignation) changes.push(`Designation: ${newDesignation}`);
+      if (!prev || prev.employmentStatus !== newStatus) changes.push(`Status: ${newStatus}`);
+      if (changes.length === 0) changes.push("Income band increased and promoted (Senior Manager).");
+      setPendingUpdates(emp.id, {
+        employeeId: emp.id,
+        employeeName: (emp as { name?: string }).name,
+        changes,
+        profileBefore: prev ? { salary: prev.salary, band: prev.band, designation: prev.designation, employmentStatus: prev.employmentStatus } : null,
+        profileAfter: synced[emp.id],
+        offersAfter: offers[emp.id],
+        syncedAt,
+      });
     }
   });
 

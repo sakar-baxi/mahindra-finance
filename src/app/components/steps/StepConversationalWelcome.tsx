@@ -125,7 +125,7 @@ export default function StepConversationalWelcome() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600 block mb-1">PAN</label>
-                  <Input value={editable.pan} onChange={(e) => setEditable((p) => ({ ...p, pan: e.target.value.toUpperCase() }))} className="h-10 font-mono" maxLength={10} />
+                  <Input value={editable.pan} onChange={(e) => setEditable((p) => ({ ...p, pan: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) }))} className="h-10 font-mono" placeholder="ABCDE1234F" maxLength={10} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600 block mb-1">Email</label>

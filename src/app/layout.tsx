@@ -13,21 +13,21 @@ const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
-  display: "swap",
+  display: "optional",
 });
 
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-manrope",
-  display: "swap",
+  display: "optional",
 });
 
 /* Font variables for journey builder (WhitelabelModal font picker) */
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const openSans = Open_Sans({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-open-sans", display: "swap" });
-const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-poppins", display: "swap" });
-const roboto = Roboto({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-roboto", display: "swap" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "optional" });
+const openSans = Open_Sans({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-open-sans", display: "optional" });
+const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-poppins", display: "optional" });
+const roboto = Roboto({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-roboto", display: "optional" });
 
 export const metadata: Metadata = {
   title: "Mahindra Finance - Savings Account",

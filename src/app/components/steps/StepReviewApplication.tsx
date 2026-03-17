@@ -9,6 +9,7 @@ import { Loader2, ArrowRight, AlertCircle } from "lucide-react";
 import { useBranding } from "@/app/context/BrandingContext";
 import { useJourneyConfig } from "@/app/context/JourneyConfigContext";
 import { trackEvent } from "@/lib/analytics";
+import { isValidIndianPan } from "@/lib/panUtils";
 import StepCard from "@/app/components/layout/StepCard";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -997,13 +998,17 @@ export default function StepReviewApplication() {
                 renderEdit: (draft, setDraft) => (
                     <Input
                         value={draft.pan || ""}
-                        onChange={(e) => setDraft({ ...draft, pan: e.target.value })}
-                        className="enterprise-input"
-                        placeholder="PAN"
+                        onChange={(e) => setDraft({ ...draft, pan: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) })}
+                        className="enterprise-input font-mono"
+                        placeholder="ABCDE1234F"
                     />
                 ),
                 onSave: (draft) => updateFormData({ pan: draft.pan || "" }),
-                validate: (draft) => (isBlank(draft.pan) ? "Please enter PAN." : null),
+                validate: (draft) => {
+                    if (isBlank(draft.pan)) return "Please enter PAN.";
+                    if (!isValidIndianPan(String(draft.pan))) return "Use Indian PAN format (e.g. ABCDE1234F).";
+                    return null;
+                },
             },
             {
                 id: "maritalStatus",

@@ -38,7 +38,7 @@ export default function StepEkycHandler() {
     }
   }, [otpSent, timer]);
 
-  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/; // Indian PAN: ABCDE1234F
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const isFormValid = pan && panRegex.test(pan) && dob && email && emailRegex.test(email) && aadhaarNumber.replace(/\D/g, "").length === 12 && uidaiConsent;

@@ -6,9 +6,9 @@ import JourneyStepWrapper from "@/app/components/JourneyStepWrapper";
 import Dashboard from "@/app/components/Dashboard";
 import AgentLayout from "@/app/components/layout/AgentLayout";
 import { AnimatePresence } from "framer-motion";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, Suspense } from "react";
 
-export default function Home() {
+function HomeContent() {
   const {
     journeySteps,
     currentStepIndex,
@@ -25,7 +25,7 @@ export default function Home() {
   useEffect(() => {
     if (bootedRef.current) return;
     try {
-      const raw = localStorage.getItem("pendingInvite");
+      const raw = typeof window !== "undefined" ? localStorage.getItem("pendingInvite") : null;
       if (!raw) return;
       localStorage.removeItem("pendingInvite");
       bootedRef.current = true;
@@ -35,7 +35,7 @@ export default function Home() {
       const merged = prefilledData
         ? { ...(employee || {}), ...prefilledData }
         : parsed.prefilled || {};
-      startJourney(journeyType, merged);
+      if (journeyType) startJourney(journeyType, merged);
     } catch { /* ignore */ }
   }, [startJourney]);
 
@@ -54,6 +54,19 @@ export default function Home() {
     return <Dashboard />;
   }
 
+  // Avoid blank screen: if no step to show, show dashboard link or loading
+  const hasContent = BranchComponent || StepComponent;
+  if (!hasContent && journeySteps.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50/50">
+        <div className="text-center">
+          <p className="text-slate-600 mb-4">Loading…</p>
+          <a href="/" className="text-dashboard-primary font-medium hover:underline">Go to Dashboard</a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50/50">
       <AgentLayout>
@@ -64,11 +77,29 @@ export default function Home() {
                 <BranchComponent />
               ) : StepComponent ? (
                 React.createElement(StepComponent)
-              ) : null}
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-slate-600">Loading step…</p>
+                </div>
+              )}
             </JourneyStepWrapper>
           </AnimatePresence>
         </div>
       </AgentLayout>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#FAFBFC]">
+          <div className="w-12 h-12 border-4 border-dashboard-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
