@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import StepCard from "@/app/components/layout/StepCard";
 import { Phone, Calendar, FileText, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isValidIndianPan } from "@/lib/panUtils";
 
 /** Step 1 of MMFSL PL journey: Verify Identity – Mobile, DOB, PAN (prefilled from HRIS when available). */
 export default function StepPLVerifyIdentity() {
@@ -40,8 +41,8 @@ export default function StepPLVerifyIdentity() {
   const stepLabel = total ? `Step ${currentStepIndex + 1} of ${total}` : null;
   const mobileValid = /^[6-9]\d{9}$/.test(mobileNumber.replace(/\D/g, ""));
   const dobValid = (dob || "").replace(/\D/g, "").length >= 8;
-  const panTrimmed = (pan || "").toUpperCase().trim();
-  const panValid = panTrimmed.length >= 10 && /^[A-Z0-9]{10,}$/.test(panTrimmed);
+  const panTrimmed = (pan || "").toUpperCase().trim().slice(0, 10);
+  const panValid = isValidIndianPan(panTrimmed);
   const canProceed = mobileValid && dobValid && panValid;
 
   return (
@@ -87,7 +88,10 @@ export default function StepPLVerifyIdentity() {
             type="text"
             placeholder="ABCDE1234F"
             value={pan}
-            onChange={(e) => setPan(e.target.value.toUpperCase().trim().slice(0, 10))}
+            onChange={(e) => {
+              const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+              setPan(v);
+            }}
             className={cn("mt-1.5 h-11 bg-slate-50 border-slate-200", fromHris && "opacity-80")}
             readOnly={fromHris}
           />

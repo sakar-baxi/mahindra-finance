@@ -19,12 +19,27 @@ import { cn } from "@/lib/utils";
 
 const INCOME_RANGES = ["₹5L - ₹8L", "₹8L - ₹10L", "₹10L - ₹15L", "₹15L - ₹20L", "₹20L - ₹25L", "₹25L+"];
 
-/** Step 6: Permanent address (prefilled from Aadhaar), Income range, Nominee, Regulatory declarations (PEP, Indian national, Tax resident). */
+/** Map numeric income (from HRIS) to display range. */
+function incomeToRange(income: string | number | undefined): string {
+  if (income == null || income === "") return "₹10L - ₹15L";
+  const num = typeof income === "string" ? parseInt(income.replace(/\D/g, ""), 10) : income;
+  if (!Number.isFinite(num)) return "₹10L - ₹15L";
+  if (num < 800_000) return "₹5L - ₹8L";
+  if (num < 1_000_000) return "₹8L - ₹10L";
+  if (num < 1_500_000) return "₹10L - ₹15L";
+  if (num < 2_000_000) return "₹15L - ₹20L";
+  if (num < 2_500_000) return "₹20L - ₹25L";
+  return "₹25L+";
+}
+
+/** Step 6: Permanent address (prefilled from Aadhaar), Income range (prefilled from HRIS), Nominee, Regulatory declarations. */
 export default function StepPLAddressIncomeRegulatory() {
-  const { formData, updateFormData, nextStep, prevStep, journeySteps, currentStepIndex } = useJourney();
-  const [address, setAddress] = useState(formData.currentAddress ?? formData.permanentAddress ?? "Flat 12B, HSR Layout, Bengaluru 560102");
+  const { formData, prefilledData, updateFormData, nextStep, prevStep, journeySteps, currentStepIndex } = useJourney();
+  const [address, setAddress] = useState(formData.currentAddress ?? formData.permanentAddress ?? prefilledData?.currentAddress ?? "Flat 12B, HSR Layout, Bengaluru 560102");
   const [sameAsCurrent, setSameAsCurrent] = useState(formData.communicationAddressSame !== false);
-  const [incomeRange, setIncomeRange] = useState(formData.incomeRange ?? "₹10L - ₹15L");
+  const incomeFromHris = formData.income ?? prefilledData?.income;
+  const defaultRange = incomeFromHris != null ? incomeToRange(incomeFromHris) : (formData.incomeRange ?? "₹10L - ₹15L");
+  const [incomeRange, setIncomeRange] = useState(defaultRange);
   const [addNominee, setAddNominee] = useState<"Yes" | "No">(formData.addNominee === true ? "Yes" : "No");
   const [pep, setPep] = useState<"Yes" | "No">((formData.pep as "Yes" | "No") ?? "No");
   const [indianNational, setIndianNational] = useState<"Yes" | "No">((formData.indianNational as "Yes" | "No") ?? "Yes");
@@ -54,7 +69,7 @@ export default function StepPLAddressIncomeRegulatory() {
 
       <div>
         <Label className="flex items-center gap-2 text-slate-700"><MapPin className="w-4 h-4" /> Permanent Address</Label>
-        <p className="text-xs text-slate-500 mt-0.5">This is prefilled from your Aadhaar.</p>
+        <p className="text-xs text-slate-500 mt-0.5">Prefilled from Aadhaar / HRIS where available.</p>
         <Input value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5 h-11 bg-slate-50 border-slate-200" placeholder="Address *" />
         <div className="flex items-center gap-2 mt-2">
           <Checkbox id="same-addr" checked={sameAsCurrent} onCheckedChange={(c) => setSameAsCurrent(!!c)} />
@@ -64,6 +79,9 @@ export default function StepPLAddressIncomeRegulatory() {
 
       <div>
         <Label className="flex items-center gap-2 text-slate-700"><DollarSign className="w-4 h-4" /> Annual Income Range *</Label>
+        {incomeFromHris != null && (
+          <p className="text-xs text-emerald-600 mt-0.5">Prefilled from HRIS. You can change if needed.</p>
+        )}
         <Select value={incomeRange} onValueChange={setIncomeRange}>
           <SelectTrigger className="mt-1.5 h-11 bg-slate-50 border-slate-200">
             <SelectValue />

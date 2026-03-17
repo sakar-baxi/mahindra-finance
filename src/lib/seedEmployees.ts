@@ -2,6 +2,7 @@
  * Seed data: 150+ employees per corporate for up to 3 corporates (Mahindra Finance demo).
  * New corporates added via onboarding get different employee records (handled in Dashboard).
  */
+import { generateIndianPan } from "./panUtils";
 
 const FIRST_NAMES = [
   "Aarav", "Diya", "Kabir", "Priya", "Rohan", "Ananya", "Vikram", "Meera", "Arjun", "Sneha",
@@ -113,7 +114,7 @@ export function getSeedEmployees(): SeedEmployee[] {
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${companyName.toLowerCase().replace(/\s+/g, "")}.example`,
         journey: i % 4 === 0 ? "etb" : i % 4 === 1 ? "etb-nk" : "ntb",
         dob,
-        pan: `${["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"][seed % 10]}${["B", "C", "D", "E", "F", "G", "H", "J", "K", "L"][(seed + 1) % 10]}${String(10000000 + (seed % 90000000))}${["F", "G", "H", "J", "K", "L", "M", "N", "P", "Q"][(seed + 2) % 10]}`,
+        pan: generateIndianPan(seed + 1000 * c),
         fatherName: `Father of ${firstName}`,
         motherName: `Mother of ${firstName}`,
         currentAddress: `Block ${(seed % 50) + 1}, ${city} ${500000 + (seed % 100000)}`,

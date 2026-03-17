@@ -40,7 +40,7 @@ import {
     getStatusBadge,
 } from "./DashboardShared";
 import ProductMarketplaceDashboard from "./shared/ProductMarketplaceDashboard";
-import { getSyncTimestamp, getTriggers, getSyncedEmployees } from "@/lib/hrmsSync";
+import { getSyncTimestamp, getTriggers, getSyncedEmployees, getPendingUpdates, clearPendingUpdates, setEmployeeOfferNotification } from "@/lib/hrmsSync";
 
 const ITEMS_PER_PAGE = 10;
 const CONNECTIONS_PER_PAGE = 10;
@@ -246,6 +246,7 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
     const [rmGradeFilter, setRmGradeFilter] = React.useState<string>("");
     const [rmIncomeFilter, setRmIncomeFilter] = React.useState<string>("");
     const [rmDeptFilter, setRmDeptFilter] = React.useState<string>("");
+    const [selectedEmployeeForUpdates, setSelectedEmployeeForUpdates] = React.useState<TEmployee | null>(null);
 
     const applyRmFilters = React.useCallback((list: TEmployee[]) => {
         let out = list;
@@ -1162,12 +1163,14 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                         <table className="w-full text-sm border-collapse min-w-[900px]">
                             <thead className="bg-[#F9FAFB] sticky top-0 z-10">
                                 <tr className="border-b border-[#E5E7EB]">
-                                    <HeaderCell label="Employee name" /><HeaderCell label="Phone number" /><HeaderCell label="Official Email ID" className="w-[180px]" /><HeaderCell label="Journey Category" /><HeaderCell label="Journey Status" hasFilter className="w-[160px]" /><HeaderCell label="Reference ID" className="w-[55px] px-3" /><th className="px-5 py-4"></th>
+                                    <HeaderCell label="Employee name" /><HeaderCell label="Phone number" /><HeaderCell label="Official Email ID" className="w-[180px]" /><HeaderCell label="Journey Category" /><HeaderCell label="Journey Status" hasFilter className="w-[160px]" /><HeaderCell label="Reference ID" className="w-[55px] px-3" />
+                                    {portalMode === "rm" && <HeaderCell label="Updates" className="w-[90px]" />}
+                                    <th className="px-5 py-4"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E5E7EB]">
                                 {paginatedList.length === 0 ? (
-                                    <tr><td colSpan={7} className="px-5 py-12 text-center text-[#6B7280] text-sm">{activeTab === "accountOpened" ? "No employees have completed their journey yet." : "No employees match your search."}</td></tr>
+                                    <tr><td colSpan={portalMode === "rm" ? 8 : 7} className="px-5 py-12 text-center text-[#6B7280] text-sm">{activeTab === "accountOpened" ? "No employees have completed their journey yet." : "No employees match your search."}</td></tr>
                                 ) : paginatedList.map((emp) => (
                                     <tr key={emp.id} className="hover:bg-[#F9FAFB] transition-colors group">
                                         <td className="px-5 py-4"><button onClick={() => setSelectedEmployee(emp)} className="text-dashboard-primary font-semibold hover:underline cursor-pointer text-left">{emp.name}</button></td>
@@ -1176,6 +1179,17 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                                         <td className="px-5 py-4">{(() => { const m = getJourneyCategory(emp.journey); return <span className={cn("px-2 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap", m.className)}>{m.label}</span>; })()}</td>
                                         <td className="px-5 py-4 w-[160px]">{(() => { const b = getStatusBadge(emp.id, !!invitedEmployeeIds[emp.id], employeeStatuses); return <span className={cn("inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap", b.className)}>{b.label === "Completed" && <CheckCircle2 className="w-3 h-3" />}{b.label !== "Not Started" && b.label !== "Invited" && b.label !== "Completed" && <Clock className="w-3 h-3" />}{b.label}</span>; })()}</td>
                                         <td className="px-3 py-4 text-[#9CA3AF] w-[55px]">—</td>
+                                        {portalMode === "rm" && (
+                                            <td className="px-3 py-4">
+                                                {getPendingUpdates(emp.id) ? (
+                                                    <button type="button" onClick={() => setSelectedEmployeeForUpdates(emp)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200">
+                                                        Updates
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[#9CA3AF] text-xs">—</span>
+                                                )}
+                                            </td>
+                                        )}
                                         <td className="px-5 py-4 text-right">
                                             <div className="flex items-center justify-end gap-4">
                                                 <button type="button" onClick={refreshStatuses} className="text-dashboard-primary font-medium text-xs cursor-pointer hover:underline">Refresh now</button>
@@ -1197,6 +1211,67 @@ export function DashboardPageContent<TEmployee extends Employee = Employee, TSta
                 </div>
                 )}
             </div>
+            {portalMode === "rm" && selectedEmployeeForUpdates && (() => {
+                const pending = getPendingUpdates(selectedEmployeeForUpdates.id);
+                if (!pending) return null;
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setSelectedEmployeeForUpdates(null)}>
+                        <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                            <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-[#111827]">HRMS updates – {(selectedEmployeeForUpdates as { name?: string }).name ?? selectedEmployeeForUpdates.id}</h3>
+                                <button type="button" onClick={() => setSelectedEmployeeForUpdates(null)} className="p-1 rounded-lg text-[#6B7280] hover:bg-[#F3F4F6]"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="px-6 py-4 space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold text-[#374151] mb-2">Changes in employee info</h4>
+                                    <ul className="list-disc list-inside text-sm text-[#6B7280] space-y-1">
+                                        {pending.changes.map((c, i) => <li key={i}>{c}</li>)}
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-semibold text-[#374151] mb-2">Profile updates</h4>
+                                    <div className="text-sm text-[#6B7280] space-y-1">
+                                        {pending.profileBefore && (
+                                            <p><span className="font-medium text-[#374151]">Before:</span> Salary ₹{pending.profileBefore.salary != null ? (pending.profileBefore.salary / 100000).toFixed(1) : "—"}L, {pending.profileBefore.band ?? "—"}, {pending.profileBefore.designation ?? "—"}, {pending.profileBefore.employmentStatus ?? "—"}</p>
+                                        )}
+                                        <p><span className="font-medium text-[#374151]">After:</span> Salary ₹{(pending.profileAfter.salary / 100000).toFixed(1)}L, {pending.profileAfter.band}, {pending.profileAfter.designation}, {pending.profileAfter.employmentStatus}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-semibold text-[#374151] mb-2">Offers (eligible now)</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {pending.offersAfter.topUpEligible && pending.offersAfter.topUpAmount && (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-800">Top-up up to ₹{(pending.offersAfter.topUpAmount / 100000).toFixed(1)}L</span>
+                                        )}
+                                        {pending.offersAfter.carLoanEligible && <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-100 text-blue-800">Car Loan</span>}
+                                        {pending.offersAfter.homeLoanEligible && <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-violet-100 text-violet-800">Home Loan</span>}
+                                        {!pending.offersAfter.topUpEligible && !pending.offersAfter.carLoanEligible && !pending.offersAfter.homeLoanEligible && (
+                                            <span className="text-sm text-[#6B7280]">No new product offers</span>
+                                        )}
+                                    </div>
+                                    {pending.offersAfter.updatedTerms && <p className="text-xs text-[#6B7280] mt-1">{pending.offersAfter.updatedTerms}</p>}
+                                </div>
+                            </div>
+                            <div className="px-6 py-4 border-t border-[#E5E7EB] flex justify-end gap-3">
+                                <button type="button" onClick={() => setSelectedEmployeeForUpdates(null)} className="h-10 px-4 border border-[#E5E7EB] rounded-lg text-sm font-semibold text-[#374151] bg-white hover:bg-[#F9FAFB]">
+                                    Close
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEmployeeOfferNotification(selectedEmployeeForUpdates.id);
+                                        clearPendingUpdates(selectedEmployeeForUpdates.id);
+                                        setSelectedEmployeeForUpdates(null);
+                                    }}
+                                    className="h-10 px-4 rounded-lg text-sm font-semibold text-white bg-dashboard-primary hover:opacity-90"
+                                >
+                                    Trigger offers
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </>
     );
 
